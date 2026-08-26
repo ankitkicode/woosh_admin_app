@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { fetchAllRiders, type RiderListResponse } from '../api/ridersApi';
-import { Search, Filter, Eye, UserX, UserCheck  } from 'lucide-react';
+import { Search, Eye } from 'lucide-react';
 
 export const RidersListPage: React.FC = () => {
   const navigate = useNavigate();
