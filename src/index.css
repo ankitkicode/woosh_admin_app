@@ -1,0 +1,45 @@
+@import "tailwindcss";
+
+@theme {
+  --color-woosh-primary: #E91E63;
+  --color-woosh-secondary: #9C27B0;
+  --color-woosh-dark: #2D2D2D;
+  --color-woosh-light: #757575;
+  --color-woosh-light-pink: #FFF0F5;
+  --color-woosh-border-pink: #FFC0CB;
+  --color-woosh-input-bg: #F9F9F9;
+  --color-woosh-success: #4CAF50;
+  --color-woosh-error: #E53935;
+  --color-woosh-surface: #F5F5F5;
+  --color-woosh-divider: #EEEEEE;
+  
+  --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+}
+
+@layer base {
+  body {
+    @apply font-sans bg-gray-50 text-woosh-dark antialiased;
+  }
+}
+
+/* Custom Gradients */
+.bg-gradient-brand {
+  background: linear-gradient(to right, #E91E63, #9C27B0);
+}
+
+.bg-gradient-verify {
+  background: linear-gradient(to right, #D81B60, #FF7043);
+}
+
+.bg-gradient-background {
+  background: linear-gradient(to bottom, #FFE0F0, #FFFFFF);
+}
+
+.bg-gradient-surface {
+  background: linear-gradient(to bottom, #FFF5F8, #FFFFFF);
+}
+
+/* Glassmorphism Utilities */
+.glass {
+  @apply bg-white/70 backdrop-blur-md border border-white/20 shadow-[0_8px_32px_0_rgba(233,30,99,0.1)];
+}
