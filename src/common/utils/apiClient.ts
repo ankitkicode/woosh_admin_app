@@ -1,8 +1,8 @@
 import { store } from '../../app/store';
 import { logout } from '../../modules/auth/store/authSlice';
 
-// We should use an environment variable for this in production
-const API_BASE_URL = 'http://localhost:5001/api/v1';
+// We use Vite environment variables. Fallback to localhost if not provided.
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api/v1';
 
 interface FetchOptions extends RequestInit {
   data?: any;
