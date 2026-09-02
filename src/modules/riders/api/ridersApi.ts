@@ -32,3 +32,10 @@ export const approveRider = async (id: string): Promise<any> => {
 export const rejectRider = async (id: string, reason: string): Promise<any> => {
   return apiClient(`/admin/riders/${id}/reject`, { method: 'PUT', data: { reason } });
 };
+
+export const reviewRiderDocument = async (id: string, docType: string, status: 'approved' | 'rejected', rejectionReason?: string): Promise<any> => {
+  return apiClient(`/admin/riders/${id}/documents/${docType}`, { 
+    method: 'PUT', 
+    data: { status, rejectionReason } 
+  });
+};

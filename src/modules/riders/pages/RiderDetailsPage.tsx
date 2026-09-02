@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { fetchRiderById, approveRider, rejectRider, type RiderDetailsResponse } from '../api/ridersApi';
+import { fetchRiderById, approveRider, rejectRider, reviewRiderDocument, type RiderDetailsResponse } from '../api/ridersApi';
 import { ArrowLeft, CheckCircle, XCircle, FileText, AlertCircle, Eye, Bike, ShieldCheck, Wallet } from 'lucide-react';
 import { DocumentViewerModal } from '../components/DocumentViewerModal';
+import type { DocumentData } from '../components/DocumentViewerModal';
 
 export const RiderDetailsPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -17,7 +18,8 @@ export const RiderDetailsPage: React.FC = () => {
   const [rejectReason, setRejectReason] = useState('');
   
   const [docViewerOpen, setDocViewerOpen] = useState(false);
-  const [docViewerData, setDocViewerData] = useState({ title: '', url: '' });
+  const [docViewerData, setDocViewerData] = useState<{ title: string, data: DocumentData | null }>({ title: '', data: null });
+  const [docReviewLoading, setDocReviewLoading] = useState(false);
 
   const loadData = async () => {
     if (!id) return;
@@ -64,9 +66,23 @@ export const RiderDetailsPage: React.FC = () => {
     }
   };
 
-  const viewDocument = (title: string, url: string) => {
-    setDocViewerData({ title, url });
+  const viewDocument = (title: string, doc: DocumentData) => {
+    setDocViewerData({ title, data: doc });
     setDocViewerOpen(true);
+  };
+
+  const handleReviewDocument = async (docType: string, status: 'approved' | 'rejected', reason?: string) => {
+    if (!id) return;
+    try {
+      setDocReviewLoading(true);
+      await reviewRiderDocument(id, docType, status, reason);
+      setDocViewerOpen(false);
+      loadData(); // Reload to get updated document status
+    } catch (err: any) {
+      alert(err.message || 'Document review failed');
+    } finally {
+      setDocReviewLoading(false);
+    }
   };
 
   if (loading) {
@@ -261,9 +277,15 @@ export const RiderDetailsPage: React.FC = () => {
                   return (
                     <div 
                       key={index}
-                      onClick={() => viewDocument(title, doc.url)}
-                      className="group cursor-pointer rounded-xl border border-gray-200 overflow-hidden hover:border-pink-500 hover:shadow-md transition-all"
+                      onClick={() => viewDocument(title, doc)}
+                      className="group cursor-pointer rounded-xl border border-gray-200 overflow-hidden hover:border-pink-500 hover:shadow-md transition-all relative"
                     >
+                      <div className="absolute top-2 right-2 z-10">
+                        {doc.status === 'approved' && <span className="bg-green-100 text-green-800 text-[10px] font-bold px-2 py-1 rounded-full uppercase shadow-sm border border-green-200">Approved</span>}
+                        {doc.status === 'rejected' && <span className="bg-red-100 text-red-800 text-[10px] font-bold px-2 py-1 rounded-full uppercase shadow-sm border border-red-200">Rejected</span>}
+                        {(!doc.status || doc.status === 'pending') && <span className="bg-amber-100 text-amber-800 text-[10px] font-bold px-2 py-1 rounded-full uppercase shadow-sm border border-amber-200">Pending</span>}
+                      </div>
+                      
                       <div className="aspect-video bg-gray-100 relative flex items-center justify-center">
                         {isPdf ? (
                           <div className="flex flex-col items-center justify-center text-gray-400">
@@ -283,8 +305,8 @@ export const RiderDetailsPage: React.FC = () => {
                         </div>
                       </div>
                       <div className="p-3 bg-white">
-                        <div className="text-sm font-semibold text-gray-900 truncate">{title}</div>
-                        <div className="text-xs text-gray-500 mt-0.5">{doc.isVerified ? 'Verified ✓' : 'Unverified'}</div>
+                        <div className="text-sm font-semibold text-gray-900 truncate pr-16">{title}</div>
+                        <div className="text-xs text-gray-500 mt-0.5">{new Date(doc.uploadedAt || new Date()).toLocaleDateString()}</div>
                       </div>
                     </div>
                   );
@@ -339,7 +361,10 @@ export const RiderDetailsPage: React.FC = () => {
         isOpen={docViewerOpen}
         onClose={() => setDocViewerOpen(false)}
         title={docViewerData.title}
-        imageUrl={docViewerData.url}
+        documentData={docViewerData.data}
+        isSubmitting={docReviewLoading}
+        onApprove={(docType) => handleReviewDocument(docType, 'approved')}
+        onReject={(docType, reason) => handleReviewDocument(docType, 'rejected', reason)}
       />
     </div>
   );
