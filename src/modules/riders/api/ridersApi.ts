@@ -39,3 +39,7 @@ export const reviewRiderDocument = async (id: string, docType: string, status: '
     data: { status, rejectionReason } 
   });
 };
+
+export const deleteRider = async (id: string): Promise<any> => {
+  return apiClient(`/admin/riders/${id}`, { method: 'DELETE' });
+};

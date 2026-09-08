@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { fetchRiderById, approveRider, rejectRider, reviewRiderDocument, type RiderDetailsResponse } from '../api/ridersApi';
-import { ArrowLeft, CheckCircle, XCircle, FileText, AlertCircle, Eye, Bike, ShieldCheck, Wallet } from 'lucide-react';
+import { fetchRiderById, approveRider, rejectRider, reviewRiderDocument, deleteRider, type RiderDetailsResponse } from '../api/ridersApi';
+import { ArrowLeft, CheckCircle, XCircle, FileText, AlertCircle, Eye, Bike, ShieldCheck, Wallet, Trash2 } from 'lucide-react';
 import { DocumentViewerModal } from '../components/DocumentViewerModal';
 import type { DocumentData } from '../components/DocumentViewerModal';
 
@@ -61,6 +61,20 @@ export const RiderDetailsPage: React.FC = () => {
       loadData(); // Reload to get updated status
     } catch (err: any) {
       alert(err.message || 'Rejection failed');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!id) return;
+    if (!window.confirm('Are you sure you want to delete this rider and their associated user account? This action cannot be undone.')) return;
+    try {
+      setActionLoading(true);
+      await deleteRider(id);
+      navigate('/riders');
+    } catch (err: any) {
+      alert(err.message || 'Deletion failed');
     } finally {
       setActionLoading(false);
     }
@@ -131,24 +145,34 @@ export const RiderDetailsPage: React.FC = () => {
         </div>
         
         {/* Action Buttons (Right Aligned) */}
-        {profile.kycStatus === 'under_review' && (
-          <div className="ml-auto flex gap-3">
-            <button 
-              onClick={() => setRejectModalOpen(true)}
-              disabled={actionLoading}
-              className="flex items-center gap-2 px-6 py-2.5 bg-white border-2 border-red-100 text-red-600 rounded-xl font-medium hover:bg-red-50 disabled:opacity-50 transition-colors"
-            >
-              <XCircle className="w-4 h-4" /> Reject
-            </button>
-            <button 
-              onClick={handleApprove}
-              disabled={actionLoading}
-              className="flex items-center gap-2 px-6 py-2.5 bg-green-600 text-white rounded-xl font-medium hover:bg-green-700 disabled:opacity-50 shadow-sm shadow-green-200 transition-all"
-            >
-              <CheckCircle className="w-4 h-4" /> Approve KYC
-            </button>
-          </div>
-        )}
+        <div className="ml-auto flex gap-3">
+          <button 
+            onClick={handleDelete}
+            disabled={actionLoading}
+            className="flex items-center gap-2 px-6 py-2.5 bg-white border-2 border-red-100 text-red-600 rounded-xl font-medium hover:bg-red-50 disabled:opacity-50 transition-colors"
+          >
+            <Trash2 className="w-4 h-4" /> Delete Rider
+          </button>
+          
+          {profile.kycStatus === 'under_review' && (
+            <>
+              <button 
+                onClick={() => setRejectModalOpen(true)}
+                disabled={actionLoading}
+                className="flex items-center gap-2 px-6 py-2.5 bg-white border-2 border-red-100 text-red-600 rounded-xl font-medium hover:bg-red-50 disabled:opacity-50 transition-colors"
+              >
+                <XCircle className="w-4 h-4" /> Reject
+              </button>
+              <button 
+                onClick={handleApprove}
+                disabled={actionLoading}
+                className="flex items-center gap-2 px-6 py-2.5 bg-green-600 text-white rounded-xl font-medium hover:bg-green-700 disabled:opacity-50 shadow-sm shadow-green-200 transition-all"
+              >
+                <CheckCircle className="w-4 h-4" /> Approve KYC
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
       {profile.kycStatus === 'rejected' && profile.kycRejectionReason && (
