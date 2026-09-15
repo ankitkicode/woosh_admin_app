@@ -1,45 +1,110 @@
 @import "tailwindcss";
 
 @theme {
+  /* ─── Brand Colors ─── */
   --color-woosh-primary: #E91E63;
-  --color-woosh-secondary: #9C27B0;
-  --color-woosh-dark: #2D2D2D;
-  --color-woosh-light: #757575;
-  --color-woosh-light-pink: #FFF0F5;
-  --color-woosh-border-pink: #FFC0CB;
-  --color-woosh-input-bg: #F9F9F9;
-  --color-woosh-success: #4CAF50;
-  --color-woosh-error: #E53935;
-  --color-woosh-surface: #F5F5F5;
-  --color-woosh-divider: #EEEEEE;
-  
+  --color-woosh-primary-hover: #C2185B;
+  --color-woosh-primary-light: #FCE4EC;
+  --color-woosh-primary-50: #FFF0F5;
+  --color-woosh-secondary: #7C3AED;
+
+  /* ─── Neutrals (Light Theme) ─── */
+  --color-woosh-dark: #1E293B;
+  --color-woosh-text: #334155;
+  --color-woosh-muted: #64748B;
+  --color-woosh-placeholder: #94A3B8;
+  --color-woosh-border: #E2E8F0;
+  --color-woosh-divider: #F1F5F9;
+  --color-woosh-surface: #F8FAFC;
+  --color-woosh-input-bg: #FFFFFF;
+  --color-woosh-bg: #F8FAFC;
+
+  /* ─── Semantic Colors ─── */
+  --color-woosh-success: #10B981;
+  --color-woosh-success-light: #D1FAE5;
+  --color-woosh-warning: #F59E0B;
+  --color-woosh-warning-light: #FEF3C7;
+  --color-woosh-error: #EF4444;
+  --color-woosh-error-light: #FEE2E2;
+  --color-woosh-info: #3B82F6;
+  --color-woosh-info-light: #DBEAFE;
+
+  /* ─── Shadows ─── */
+  --shadow-woosh-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.04);
+  --shadow-woosh-md: 0 1px 3px 0 rgba(0, 0, 0, 0.06), 0 1px 2px -1px rgba(0, 0, 0, 0.06);
+  --shadow-woosh-lg: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+  --shadow-woosh-xl: 0 10px 25px -3px rgba(0, 0, 0, 0.06), 0 4px 6px -4px rgba(0, 0, 0, 0.04);
+
+  /* ─── Typography ─── */
   --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+
+  /* ─── Radius ─── */
+  --radius-woosh-sm: 6px;
+  --radius-woosh-md: 8px;
+  --radius-woosh-lg: 12px;
+  --radius-woosh-xl: 16px;
 }
 
 @layer base {
   body {
-    @apply font-sans bg-gray-50 text-woosh-dark antialiased;
+    @apply font-sans bg-woosh-bg text-woosh-text antialiased;
+  }
+
+  /* Smooth scroll */
+  html {
+    scroll-behavior: smooth;
+  }
+
+  /* Better scrollbars */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #CBD5E1;
+    border-radius: 3px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #94A3B8;
   }
 }
 
-/* Custom Gradients */
-.bg-gradient-brand {
-  background: linear-gradient(to right, #E91E63, #9C27B0);
+/* ─── Animations ─── */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
-.bg-gradient-verify {
-  background: linear-gradient(to right, #D81B60, #FF7043);
+@keyframes slideInLeft {
+  from { opacity: 0; transform: translateX(-16px); }
+  to { opacity: 1; transform: translateX(0); }
 }
 
-.bg-gradient-background {
-  background: linear-gradient(to bottom, #FFE0F0, #FFFFFF);
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(16px); }
+  to { opacity: 1; transform: translateX(0); }
 }
 
-.bg-gradient-surface {
-  background: linear-gradient(to bottom, #FFF5F8, #FFFFFF);
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
 }
 
-/* Glassmorphism Utilities */
-.glass {
-  @apply bg-white/70 backdrop-blur-md border border-white/20 shadow-[0_8px_32px_0_rgba(233,30,99,0.1)];
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-out;
+}
+
+.animate-slide-in-left {
+  animation: slideInLeft 0.3s ease-out;
+}
+
+.animate-slide-in-right {
+  animation: slideInRight 0.3s ease-out;
+}
+
+.animate-scale-in {
+  animation: scaleIn 0.2s ease-out;
 }

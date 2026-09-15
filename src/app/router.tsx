@@ -10,6 +10,7 @@ import { RiderDetailsPage } from '../modules/riders/pages/RiderDetailsPage';
 import { PassengersView } from '../modules/passengers/pages/PassengersView';
 import { RidesView } from '../modules/rides/pages/RidesView';
 import { SettingsView } from '../modules/settings/pages/SettingsView';
+import { CitiesPage } from '../modules/cities/pages/CitiesPage';
 
 export function AppRouter() {
   const { isAuthenticated } = useSelector((state: RootState) => state.auth);
@@ -29,6 +30,7 @@ export function AppRouter() {
         <Route path="/riders" element={<RidersListPage />} />
         <Route path="/riders/:id" element={<RiderDetailsPage />} />
         <Route path="/passengers" element={<PassengersView />} />
+        <Route path="/cities" element={<CitiesPage />} />
         <Route path="/settings" element={<SettingsView />} />
       </Route>
 

@@ -15,7 +15,7 @@ export function Table({ className, ...props }: TableProps) {
 }
 
 export function TableHeader({ className, ...props }: React.HTMLAttributes<HTMLTableSectionElement>) {
-  return <thead className={cn("[&_tr]:border-b border-woosh-divider", className)} {...props} />;
+  return <thead className={cn("bg-woosh-surface/60 [&_tr]:border-b border-woosh-divider", className)} {...props} />;
 }
 
 export function TableBody({ className, ...props }: React.HTMLAttributes<HTMLTableSectionElement>) {
@@ -26,7 +26,7 @@ export function TableRow({ className, ...props }: React.HTMLAttributes<HTMLTable
   return (
     <tr
       className={cn(
-        "border-b border-woosh-divider transition-colors hover:bg-woosh-surface/50 data-[state=selected]:bg-woosh-surface",
+        "border-b border-woosh-divider transition-colors hover:bg-woosh-surface/40",
         className
       )}
       {...props}
@@ -38,7 +38,7 @@ export function TableHead({ className, ...props }: React.ThHTMLAttributes<HTMLTa
   return (
     <th
       className={cn(
-        "h-12 px-4 text-left align-middle font-medium text-woosh-light [&:has([role=checkbox])]:pr-0",
+        "h-10 px-4 text-left align-middle text-xs font-semibold text-woosh-muted uppercase tracking-wider",
         className
       )}
       {...props}
@@ -49,7 +49,7 @@ export function TableHead({ className, ...props }: React.ThHTMLAttributes<HTMLTa
 export function TableCell({ className, ...props }: React.TdHTMLAttributes<HTMLTableCellElement>) {
   return (
     <td
-      className={cn("p-4 align-middle [&:has([role=checkbox])]:pr-0", className)}
+      className={cn("px-4 py-3 align-middle text-sm", className)}
       {...props}
     />
   );

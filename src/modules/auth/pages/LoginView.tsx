@@ -13,7 +13,7 @@ export function LoginView() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
+
   const navigate = useNavigate();
   const dispatch = useDispatch();
 
@@ -27,7 +27,7 @@ export function LoginView() {
         data: { email, password },
         method: 'POST'
       });
-      
+
       dispatch(setCredentials({
         token: data.accessToken,
         adminId: data.admin._id,
@@ -44,19 +44,19 @@ export function LoginView() {
   };
 
   return (
-    <form className="space-y-6" onSubmit={handleLogin}>
+    <form className="space-y-5" onSubmit={handleLogin}>
       {error && (
-        <div className="bg-red-50 text-woosh-error p-3 rounded-xl text-sm text-center border border-woosh-error/20">
+        <div className="bg-red-50 text-woosh-error p-3 rounded-lg text-sm text-center border border-red-200">
           {error}
         </div>
       )}
-      
+
       <Input
         label="Email address"
         type="email"
         value={email}
         onChange={(e) => setEmail(e.target.value)}
-        icon={<Mail size={20} />}
+        icon={<Mail size={18} />}
         placeholder="admin@woosh.com"
         required
       />
@@ -66,27 +66,27 @@ export function LoginView() {
         type={showPassword ? 'text' : 'password'}
         value={password}
         onChange={(e) => setPassword(e.target.value)}
-        icon={<Lock size={20} />}
+        icon={<Lock size={18} />}
         placeholder="••••••••"
         required
         suffix={
           <button
             type="button"
             onClick={() => setShowPassword(!showPassword)}
-            className="p-1 hover:bg-gray-200 rounded-full transition-colors text-woosh-light hover:text-woosh-dark focus:outline-none"
+            className="p-0.5 hover:bg-slate-100 rounded transition-colors text-woosh-placeholder hover:text-woosh-dark focus:outline-none"
             tabIndex={-1}
           >
-            {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+            {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
           </button>
         }
       />
 
       <div className="flex items-center justify-between text-sm">
         <label className="flex items-center gap-2 cursor-pointer">
-          <input type="checkbox" className="rounded text-woosh-primary focus:ring-woosh-primary/50" />
-          <span className="text-woosh-dark">Remember me</span>
+          <input type="checkbox" className="rounded border-woosh-border text-woosh-primary focus:ring-woosh-primary/50" />
+          <span className="text-woosh-text">Remember me</span>
         </label>
-        <button type="button" className="text-woosh-primary font-medium hover:underline">
+        <button type="button" className="text-woosh-primary font-medium hover:underline text-sm">
           Forgot password?
         </button>
       </div>

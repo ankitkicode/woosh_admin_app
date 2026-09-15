@@ -3,7 +3,7 @@ import { cn } from '../utils/cn';
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger';
-  size?: 'sm' | 'md' | 'lg';
+  size?: 'sm' | 'md' | 'lg' | 'icon';
   isLoading?: boolean;
 }
 
@@ -16,20 +16,21 @@ export function Button({
   disabled,
   ...props
 }: ButtonProps) {
-  const baseStyles = 'inline-flex items-center justify-center rounded-xl font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-woosh-primary/50 disabled:opacity-50 disabled:pointer-events-none cursor-pointer';
+  const baseStyles = 'inline-flex items-center justify-center font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none cursor-pointer';
   
   const variants = {
-    primary: 'bg-woosh-primary text-white hover:bg-woosh-primary/90 shadow-md shadow-woosh-shadow-pink',
-    secondary: 'bg-woosh-secondary text-white hover:bg-woosh-secondary/90',
-    outline: 'border-2 border-woosh-border-pink text-woosh-primary hover:bg-woosh-light-pink',
-    ghost: 'text-woosh-dark hover:bg-gray-100',
-    danger: 'bg-woosh-error text-white hover:bg-woosh-error/90',
+    primary: 'bg-woosh-primary text-white hover:bg-woosh-primary-hover focus:ring-woosh-primary/40 shadow-sm',
+    secondary: 'bg-woosh-dark text-white hover:bg-slate-700 focus:ring-woosh-dark/40 shadow-sm',
+    outline: 'border border-woosh-border text-woosh-text bg-white hover:bg-woosh-surface focus:ring-woosh-primary/30',
+    ghost: 'text-woosh-muted hover:text-woosh-text hover:bg-woosh-surface focus:ring-woosh-primary/20',
+    danger: 'bg-woosh-error text-white hover:bg-red-600 focus:ring-woosh-error/40 shadow-sm',
   };
 
   const sizes = {
-    sm: 'h-9 px-4 text-sm',
-    md: 'h-11 px-6 text-base',
-    lg: 'h-14 px-8 text-lg',
+    sm: 'h-8 px-3 text-xs rounded-md gap-1.5',
+    md: 'h-9 px-4 text-sm rounded-lg gap-2',
+    lg: 'h-11 px-6 text-base rounded-lg gap-2',
+    icon: 'h-9 w-9 rounded-lg',
   };
 
   return (
@@ -40,7 +41,7 @@ export function Button({
     >
       {isLoading && (
         <svg
-          className="animate-spin -ml-1 mr-2 h-4 w-4 text-current"
+          className="animate-spin -ml-0.5 mr-1.5 h-3.5 w-3.5 text-current"
           xmlns="http://www.w3.org/2000/svg"
           fill="none"
           viewBox="0 0 24 24"

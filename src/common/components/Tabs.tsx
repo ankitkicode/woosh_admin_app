@@ -5,6 +5,7 @@ interface Tab {
   id: string;
   label: string;
   icon?: React.ReactNode;
+  count?: number;
 }
 
 interface TabsProps {
@@ -16,24 +17,37 @@ interface TabsProps {
 
 export function Tabs({ tabs, activeTab, onChange, className }: TabsProps) {
   return (
-    <div className={cn("flex space-x-1 border-b border-woosh-divider", className)}>
+    <div className={cn("flex gap-1 border-b border-woosh-divider", className)}>
       {tabs.map((tab) => (
         <button
           key={tab.id}
           onClick={() => onChange(tab.id)}
           className={cn(
-            "flex items-center gap-2 px-4 py-3 text-sm font-medium transition-all border-b-2",
+            "flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-all duration-200 border-b-2 -mb-px",
             activeTab === tab.id
-              ? "border-woosh-primary text-woosh-primary bg-woosh-light-pink/50 rounded-t-lg"
-              : "border-transparent text-woosh-light hover:text-woosh-dark hover:border-gray-300"
+              ? "border-woosh-primary text-woosh-primary"
+              : "border-transparent text-woosh-muted hover:text-woosh-text hover:border-slate-300"
           )}
         >
           {tab.icon && (
-            <span className={cn(activeTab === tab.id ? "text-woosh-primary" : "text-woosh-light")}>
+            <span className={cn(
+              "transition-colors",
+              activeTab === tab.id ? "text-woosh-primary" : "text-woosh-placeholder"
+            )}>
               {tab.icon}
             </span>
           )}
           {tab.label}
+          {tab.count !== undefined && (
+            <span className={cn(
+              "ml-1 text-xs font-medium px-1.5 py-0.5 rounded-full",
+              activeTab === tab.id
+                ? "bg-woosh-primary-light text-woosh-primary"
+                : "bg-woosh-surface text-woosh-muted"
+            )}>
+              {tab.count}
+            </span>
+          )}
         </button>
       ))}
     </div>

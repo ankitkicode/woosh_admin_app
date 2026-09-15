@@ -2,15 +2,15 @@ import { useState, useEffect } from 'react';
 import { apiClient } from '../../../common/utils/apiClient';
 import { Input } from '../../../common/components/Input';
 import { Button } from '../../../common/components/Button';
+import { useToast } from '../../../common/components/Toast';
+import { Skeleton } from '../../../common/components/Skeleton';
 import { Save } from 'lucide-react';
 
 export function GeneralSettingsTab() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
+  const { toast } = useToast();
 
-  // Form states matching SystemConfig model
   const [platformCommissionRate, setPlatformCommissionRate] = useState('');
   const [taxRate, setTaxRate] = useState('');
   const [maxSurgeLimit, setMaxSurgeLimit] = useState('');
@@ -29,7 +29,7 @@ export function GeneralSettingsTab() {
       setMaxSurgeLimit(data.maxSurgeLimit?.toString() || '3');
       setDefaultCurrency(data.defaultCurrency || 'INR');
     } catch (err: any) {
-      setError(err.message || 'Failed to load settings');
+      toast('error', 'Failed to load settings', err.message);
     } finally {
       setIsLoading(false);
     }
@@ -39,9 +39,6 @@ export function GeneralSettingsTab() {
     e.preventDefault();
     try {
       setIsSaving(true);
-      setError(null);
-      setSuccess(null);
-      
       await apiClient('/admin/settings', {
         method: 'PUT',
         data: {
@@ -51,40 +48,43 @@ export function GeneralSettingsTab() {
           defaultCurrency,
         },
       });
-      
-      setSuccess('Settings saved successfully!');
-      setTimeout(() => setSuccess(null), 3000);
+      toast('success', 'Settings saved successfully');
     } catch (err: any) {
-      setError(err.message || 'Failed to save settings');
+      toast('error', 'Failed to save settings', err.message);
     } finally {
       setIsSaving(false);
     }
   };
 
   if (isLoading) {
-    return <div className="p-8 text-center text-woosh-light animate-pulse">Loading settings...</div>;
+    return (
+      <div className="max-w-2xl space-y-4">
+        <Skeleton className="h-5 w-40" />
+        <Skeleton className="h-3 w-64" />
+        <div className="grid grid-cols-2 gap-4 mt-4">
+          {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-16" />)}
+        </div>
+      </div>
+    );
   }
 
   return (
-    <form onSubmit={handleSave} className="max-w-2xl space-y-6">
+    <form onSubmit={handleSave} className="max-w-2xl space-y-5">
       <div>
-        <h2 className="text-lg font-medium text-woosh-dark">General Settings</h2>
-        <p className="text-sm text-woosh-light mt-1">Configure global platform parameters.</p>
+        <h2 className="text-base font-semibold text-woosh-dark">General Settings</h2>
+        <p className="text-sm text-woosh-muted mt-0.5">Configure global platform parameters.</p>
       </div>
 
-      {error && <div className="p-3 bg-red-50 text-red-600 rounded-lg text-sm border border-red-200">{error}</div>}
-      {success && <div className="p-3 bg-green-50 text-green-600 rounded-lg text-sm border border-green-200">{success}</div>}
-
-      <div className="space-y-4 bg-white p-5 border border-woosh-divider rounded-xl">
+      <div className="space-y-4 bg-woosh-surface/50 p-5 border border-woosh-divider rounded-lg">
         <h3 className="text-sm font-semibold text-woosh-dark border-b border-woosh-divider pb-2">Financials & Pricing</h3>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Input
-            label="Platform Commission Rate (%)"
+            label="Commission Rate (%)"
             type="number"
             step="0.1"
             value={platformCommissionRate}
             onChange={(e) => setPlatformCommissionRate(e.target.value)}
-            placeholder="e.g. 20"
+            hint="Platform commission per ride"
             required
           />
           <Input
@@ -93,7 +93,7 @@ export function GeneralSettingsTab() {
             step="0.1"
             value={taxRate}
             onChange={(e) => setTaxRate(e.target.value)}
-            placeholder="e.g. 5"
+            hint="Applied on all transactions"
             required
           />
           <Input
@@ -102,7 +102,7 @@ export function GeneralSettingsTab() {
             step="0.1"
             value={maxSurgeLimit}
             onChange={(e) => setMaxSurgeLimit(e.target.value)}
-            placeholder="e.g. 3.0"
+            hint="Maximum allowed surge (e.g. 3.0 = 3x)"
             required
           />
           <Input
@@ -110,15 +110,15 @@ export function GeneralSettingsTab() {
             type="text"
             value={defaultCurrency}
             onChange={(e) => setDefaultCurrency(e.target.value)}
-            placeholder="INR"
+            hint="ISO currency code"
             required
           />
         </div>
       </div>
 
-      <div className="pt-4 flex justify-end">
-        <Button type="submit" isLoading={isSaving} className="gap-2">
-          <Save size={18} /> Save Changes
+      <div className="pt-2 flex justify-end">
+        <Button type="submit" isLoading={isSaving}>
+          <Save size={16} /> Save Changes
         </Button>
       </div>
     </form>
