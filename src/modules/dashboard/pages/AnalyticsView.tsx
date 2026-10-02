@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../common/components/Card';
 import { Banknote, IndianRupee, TrendingUp, Briefcase } from 'lucide-react';
-import { apiClient } from '../../../common/api/client';
+import { apiClient } from '../../../common/utils/apiClient';
 import { useToast } from '../../../common/components/Toast';
 
 export const AnalyticsView: React.FC = () => {

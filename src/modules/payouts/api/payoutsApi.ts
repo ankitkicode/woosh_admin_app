@@ -1,4 +1,4 @@
-import { apiClient } from '../../../common/api/client';
+import { apiClient } from '../../../common/utils/apiClient';
 
 export interface PayoutRequest {
   _id: string;

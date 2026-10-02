@@ -8,7 +8,7 @@ import { Modal } from '../../../common/components/Modal';
 import { Input } from '../../../common/components/Input';
 import { Textarea } from '../../../common/components/Textarea';
 import { useToast } from '../../../common/components/Toast';
-import { Banknote, CheckCircle, XCircle } from 'lucide-react';
+import { Banknote } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 export const PayoutsView: React.FC = () => {

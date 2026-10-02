@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { fetchRiderById, approveRider, rejectRider, reviewRiderDocument, deleteRider, fetchRiderWalletHistory, type RiderDetailsResponse } from '../api/ridersApi';
-import { ArrowLeft, CheckCircle, XCircle, FileText, AlertCircle, Eye, Bike, ShieldCheck, Wallet, Trash2, IndianRupee, TrendingUp } from 'lucide-react';
+import { fetchRiderById, approveRider, rejectRider, reviewRiderDocument, deleteRider, type RiderDetailsResponse } from '../api/ridersApi';
+import { ArrowLeft, CheckCircle, XCircle, FileText, AlertCircle, Eye, Bike, ShieldCheck, Wallet, Trash2 } from 'lucide-react';
 import { DocumentViewerModal } from '../components/DocumentViewerModal';
 import type { DocumentData } from '../components/DocumentViewerModal';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../common/components/Card';
@@ -20,7 +20,7 @@ export const RiderDetailsPage: React.FC = () => {
   const { toast } = useToast();
   
   const [data, setData] = useState<RiderDetailsResponse | null>(null);
-  const [walletHistory, setWalletHistory] = useState<any | null>(null);
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
@@ -38,12 +38,8 @@ export const RiderDetailsPage: React.FC = () => {
     if (!id) return;
     try {
       setLoading(true);
-      const [res, walletRes] = await Promise.all([
-        fetchRiderById(id),
-        fetchRiderWalletHistory(id).catch(() => null)
-      ]);
+      const res = await fetchRiderById(id);
       setData(res);
-      setWalletHistory(walletRes);
       setError(null);
     } catch (err: any) {
       setError(err.message || 'Failed to load rider details');
