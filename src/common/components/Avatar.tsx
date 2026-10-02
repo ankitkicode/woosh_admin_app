@@ -3,14 +3,16 @@ import { cn } from '../utils/cn';
 interface AvatarProps {
   name?: string;
   src?: string;
-  size?: 'sm' | 'md' | 'lg';
+  size?: 'sm' | 'md' | 'lg' | 'xl';
   className?: string;
+  fallbackIcon?: React.ReactNode;
 }
 
 const sizeMap = {
   sm: 'w-8 h-8 text-xs',
   md: 'w-9 h-9 text-sm',
   lg: 'w-11 h-11 text-base',
+  xl: 'w-16 h-16 text-xl',
 };
 
 const colors = [
@@ -27,7 +29,7 @@ function getColorFromName(name: string): string {
   return colors[charCode % colors.length];
 }
 
-export function Avatar({ name, src, size = 'md', className }: AvatarProps) {
+export function Avatar({ name, src, size = 'md', className, fallbackIcon }: AvatarProps) {
   const initials = name ? name.charAt(0).toUpperCase() : '?';
   const colorClass = name ? getColorFromName(name) : colors[0];
 
@@ -50,7 +52,7 @@ export function Avatar({ name, src, size = 'md', className }: AvatarProps) {
         className
       )}
     >
-      {initials}
+      {fallbackIcon ? fallbackIcon : initials}
     </div>
   );
 }

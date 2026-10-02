@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardHeader, CardTitle, CardContent } from '../../../common/components/Card';
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '../../../common/components/Table';
 import { Button } from '../../../common/components/Button';
@@ -19,6 +20,7 @@ export function PassengersView() {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   useEffect(() => {
     fetchPassengers();
@@ -104,15 +106,20 @@ export function PassengersView() {
                       </TableCell>
                       <TableCell className="text-woosh-muted">{new Date(passenger.createdAt).toLocaleDateString()}</TableCell>
                       <TableCell className="text-right">
-                        {passenger.isActive ? (
-                          <Button variant="ghost" size="sm" onClick={() => toggleBanStatus(passenger._id, true)} className="text-red-600 hover:text-red-700 hover:bg-red-50">
-                            <Ban size={14} /> Ban
+                        <div className="flex items-center justify-end gap-1">
+                          <Button variant="ghost" size="sm" onClick={() => navigate(`/passengers/${passenger._id}`)} className="text-woosh-primary hover:bg-woosh-primary-light">
+                            View
                           </Button>
-                        ) : (
-                          <Button variant="ghost" size="sm" onClick={() => toggleBanStatus(passenger._id, false)} className="text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50">
-                            <CheckCircle size={14} /> Unban
-                          </Button>
-                        )}
+                          {passenger.isActive ? (
+                            <Button variant="ghost" size="sm" onClick={() => toggleBanStatus(passenger._id, true)} className="text-red-600 hover:text-red-700 hover:bg-red-50">
+                              <Ban size={14} /> Ban
+                            </Button>
+                          ) : (
+                            <Button variant="ghost" size="sm" onClick={() => toggleBanStatus(passenger._id, false)} className="text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50">
+                              <CheckCircle size={14} /> Unban
+                            </Button>
+                          )}
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}

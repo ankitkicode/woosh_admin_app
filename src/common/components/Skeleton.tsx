@@ -33,9 +33,9 @@ export function SkeletonTable({ rows = 5 }: { rows?: number }) {
   );
 }
 
-export function SkeletonCard() {
+export function SkeletonCard({ className }: { className?: string }) {
   return (
-    <div className="bg-white rounded-xl border border-woosh-border p-5 space-y-3">
+    <div className={cn("bg-white rounded-xl border border-woosh-border p-5 space-y-3", className)}>
       <div className="flex items-center justify-between">
         <Skeleton className="h-10 w-10 rounded-lg" />
         <Skeleton className="h-5 w-14 rounded-md" />

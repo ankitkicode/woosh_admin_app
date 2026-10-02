@@ -7,26 +7,7 @@ import { SkeletonCard } from '../../../common/components/Skeleton';
 import { apiClient } from '../../../common/utils/apiClient';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
 
-// Mock chart data — will be replaced with real API data
-const revenueData = [
-  { name: 'Mon', revenue: 4200 },
-  { name: 'Tue', revenue: 5800 },
-  { name: 'Wed', revenue: 4900 },
-  { name: 'Thu', revenue: 7200 },
-  { name: 'Fri', revenue: 8100 },
-  { name: 'Sat', revenue: 9500 },
-  { name: 'Sun', revenue: 6800 },
-];
-
-const rideVolumeData = [
-  { name: 'Mon', rides: 45 },
-  { name: 'Tue', rides: 62 },
-  { name: 'Wed', rides: 53 },
-  { name: 'Thu', rides: 78 },
-  { name: 'Fri', rides: 85 },
-  { name: 'Sat', rides: 92 },
-  { name: 'Sun', rides: 68 },
-];
+// Dynamic chart data will be fetched from API
 
 export function DashboardView() {
   const [stats, setStats] = useState({
@@ -36,6 +17,16 @@ export function DashboardView() {
     totalPassengers: 0,
     pendingKYC: 0,
     openComplaints: 0,
+  });
+  const [charts, setCharts] = useState({
+    revenueData: [],
+    rideVolumeData: []
+  });
+  const [trends, setTrends] = useState({
+    revenue: 0,
+    activeRides: 0,
+    totalRiders: 0,
+    totalPassengers: 0
   });
   const [recentRides, setRecentRides] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -53,13 +44,22 @@ export function DashboardView() {
       ]);
 
       setStats({
-        totalRevenue: statsData.totalRevenue || 0,
+        totalRevenue: dashboardData.totalRevenue || statsData.totalRevenue || 0,
         activeRides: dashboardData.activeRides || 0,
         totalRiders: dashboardData.totalRiders || 0,
         totalPassengers: dashboardData.totalPassengers || 0,
         pendingKYC: dashboardData.pendingKYC || 0,
         openComplaints: dashboardData.openComplaints || 0,
       });
+
+      setCharts({
+        revenueData: dashboardData.revenueData || [],
+        rideVolumeData: dashboardData.rideVolumeData || [],
+      });
+
+      if (dashboardData.trends) {
+        setTrends(dashboardData.trends);
+      }
 
       // Fetch recent rides
       const ridesData = await apiClient('/admin/rides/active').catch(() => []);
@@ -71,11 +71,19 @@ export function DashboardView() {
     }
   };
 
+  const formatTrend = (val: number) => {
+    const isPositive = val >= 0;
+    return {
+      value: `${isPositive ? '+' : ''}${val}%`,
+      positive: isPositive
+    };
+  };
+
   const statCards = [
-    { title: 'Total Revenue', value: `₹${stats.totalRevenue.toLocaleString()}`, icon: IndianRupee, trend: { value: '+12.5%', positive: true } },
-    { title: 'Active Rides', value: stats.activeRides.toLocaleString(), icon: Map, trend: { value: '+4.2%', positive: true } },
-    { title: 'Total Riders', value: stats.totalRiders.toLocaleString(), icon: UserCircle, trend: { value: '+18.1%', positive: true } },
-    { title: 'Total Passengers', value: stats.totalPassengers.toLocaleString(), icon: Users, trend: { value: '+8.4%', positive: true } },
+    { title: 'Total Revenue', value: `₹${stats.totalRevenue.toLocaleString()}`, icon: IndianRupee, trend: formatTrend(trends.revenue) },
+    { title: 'Active Rides', value: stats.activeRides.toLocaleString(), icon: Map, trend: formatTrend(trends.activeRides) },
+    { title: 'Total Riders', value: stats.totalRiders.toLocaleString(), icon: UserCircle, trend: formatTrend(trends.totalRiders) },
+    { title: 'Total Passengers', value: stats.totalPassengers.toLocaleString(), icon: Users, trend: formatTrend(trends.totalPassengers) },
   ];
 
   const getStatusBadge = (status: string) => {
@@ -130,7 +138,7 @@ export function DashboardView() {
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={240}>
-              <AreaChart data={revenueData}>
+              <AreaChart data={charts.revenueData}>
                 <defs>
                   <linearGradient id="revenueGrad" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#E91E63" stopOpacity={0.15} />
@@ -156,7 +164,7 @@ export function DashboardView() {
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={240}>
-              <BarChart data={rideVolumeData}>
+              <BarChart data={charts.rideVolumeData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
                 <XAxis dataKey="name" tick={{ fill: '#94A3B8', fontSize: 12 }} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fill: '#94A3B8', fontSize: 12 }} axisLine={false} tickLine={false} />

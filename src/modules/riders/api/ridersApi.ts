@@ -34,12 +34,39 @@ export const rejectRider = async (id: string, reason: string): Promise<any> => {
 };
 
 export const reviewRiderDocument = async (id: string, docType: string, status: 'approved' | 'rejected', rejectionReason?: string): Promise<any> => {
-  return apiClient(`/admin/riders/${id}/documents/${docType}`, { 
+  return apiClient(`/admin/riders/${id}/documents/${docType}/status`, { 
     method: 'PUT', 
     data: { status, rejectionReason } 
   });
 };
 
-export const deleteRider = async (id: string): Promise<any> => {
-  return apiClient(`/admin/riders/${id}`, { method: 'DELETE' });
+export const deleteRider = async (id: string): Promise<void> => {
+  await apiClient(`/admin/riders/${id}`, { method: 'DELETE' });
+};
+
+export interface WalletTransaction {
+  _id: string;
+  type: string;
+  amount: number;
+  description: string;
+  referenceId?: string;
+  balanceAfter: number;
+  createdAt: string;
+}
+
+export interface WalletHistoryResponse {
+  walletBalance: number;
+  totalEarnings: number;
+  transactions: WalletTransaction[];
+  pagination: {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  };
+}
+
+export const fetchRiderWalletHistory = async (id: string, page = 1, limit = 15): Promise<WalletHistoryResponse> => {
+  const data = await apiClient(`/admin/riders/${id}/wallet?page=${page}&limit=${limit}`);
+  return data;
 };

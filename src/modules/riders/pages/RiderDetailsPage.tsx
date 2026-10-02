@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { fetchRiderById, approveRider, rejectRider, reviewRiderDocument, deleteRider, type RiderDetailsResponse } from '../api/ridersApi';
-import { ArrowLeft, CheckCircle, XCircle, FileText, AlertCircle, Eye, Bike, ShieldCheck, Wallet, Trash2 } from 'lucide-react';
+import { fetchRiderById, approveRider, rejectRider, reviewRiderDocument, deleteRider, fetchRiderWalletHistory, type RiderDetailsResponse } from '../api/ridersApi';
+import { ArrowLeft, CheckCircle, XCircle, FileText, AlertCircle, Eye, Bike, ShieldCheck, Wallet, Trash2, IndianRupee, TrendingUp } from 'lucide-react';
 import { DocumentViewerModal } from '../components/DocumentViewerModal';
 import type { DocumentData } from '../components/DocumentViewerModal';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../common/components/Card';
@@ -20,6 +20,7 @@ export const RiderDetailsPage: React.FC = () => {
   const { toast } = useToast();
   
   const [data, setData] = useState<RiderDetailsResponse | null>(null);
+  const [walletHistory, setWalletHistory] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
@@ -31,12 +32,18 @@ export const RiderDetailsPage: React.FC = () => {
   const [docViewerData, setDocViewerData] = useState<{ title: string, data: DocumentData | null }>({ title: '', data: null });
   const [docReviewLoading, setDocReviewLoading] = useState(false);
 
+  const backendUrl = (import.meta.env.VITE_API_URL || 'http://localhost:5001/api/v1').replace('/api/v1', '');
+
   const loadData = async () => {
     if (!id) return;
     try {
       setLoading(true);
-      const res = await fetchRiderById(id);
+      const [res, walletRes] = await Promise.all([
+        fetchRiderById(id),
+        fetchRiderWalletHistory(id).catch(() => null)
+      ]);
       setData(res);
+      setWalletHistory(walletRes);
       setError(null);
     } catch (err: any) {
       setError(err.message || 'Failed to load rider details');
@@ -236,7 +243,8 @@ export const RiderDetailsPage: React.FC = () => {
                 <Avatar 
                   name={user.name || '?'} 
                   size="lg" 
-                  src={profile.profileImage ? (profile.profileImage.startsWith('http') ? profile.profileImage : `http://localhost:5001${profile.profileImage}`) : undefined} 
+                  src={profile.profileImage ? (profile.profileImage.startsWith('http') ? profile.profileImage : `${backendUrl}${profile.profileImage}`) : undefined} 
+                  fallbackIcon={<Bike size={32} />}
                 />
                 <div>
                   <h4 className="text-base font-bold text-woosh-dark">{user.name || 'Not Provided'}</h4>
@@ -362,7 +370,7 @@ export const RiderDetailsPage: React.FC = () => {
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                   {profile.documents.map((doc: any, index: number) => {
                     const title = doc.type.split('_').map((word: string) => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
-                    const imageUrl = doc.url.startsWith('http') ? doc.url : `http://localhost:5001${doc.url}`;
+                    const imageUrl = doc.url.startsWith('http') ? doc.url : `${backendUrl}${doc.url}`;
                     const isPdf = doc.url.toLowerCase().endsWith('.pdf');
                     
                     return (
@@ -372,9 +380,9 @@ export const RiderDetailsPage: React.FC = () => {
                         className="group cursor-pointer rounded-xl border border-woosh-border overflow-hidden hover:border-woosh-primary hover:shadow-md transition-all relative"
                       >
                         <div className="absolute top-2 right-2 z-10">
-                          {doc.status === 'approved' && <Badge variant="success">Approved</Badge>}
-                          {doc.status === 'rejected' && <Badge variant="error">Rejected</Badge>}
-                          {(!doc.status || doc.status === 'pending') && <Badge variant="warning">Pending</Badge>}
+                          {doc.status?.toLowerCase() === 'approved' && <Badge variant="success">Approved</Badge>}
+                          {doc.status?.toLowerCase() === 'rejected' && <Badge variant="error">Rejected</Badge>}
+                          {(!doc.status || doc.status?.toLowerCase() === 'pending') && <Badge variant="warning">Pending</Badge>}
                         </div>
                         
                         <div className="aspect-video bg-woosh-surface relative flex items-center justify-center border-b border-woosh-divider">

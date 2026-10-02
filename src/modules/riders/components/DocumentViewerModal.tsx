@@ -27,7 +27,8 @@ export const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
 
   if (!isOpen || !documentData) return null;
 
-  const fullImageUrl = documentData.url.startsWith('http') ? documentData.url : `http://localhost:5001${documentData.url}`;
+  const backendUrl = (import.meta.env.VITE_API_URL || 'http://localhost:5001/api/v1').replace('/api/v1', '');
+  const fullImageUrl = documentData.url.startsWith('http') ? documentData.url : `${backendUrl}${documentData.url}`;
   const isPdf = fullImageUrl.toLowerCase().endsWith('.pdf');
 
   const handleClose = () => {
@@ -50,9 +51,9 @@ export const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
           <div className="flex items-center gap-3">
             <h3 className="text-lg font-bold text-gray-900">{title}</h3>
-            {documentData.status === 'approved' && <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-green-100 text-green-800 uppercase">Approved</span>}
-            {documentData.status === 'rejected' && <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-red-100 text-red-800 uppercase">Rejected</span>}
-            {documentData.status === 'pending' && <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800 uppercase">Pending</span>}
+            {documentData.status?.toLowerCase() === 'approved' && <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-green-100 text-green-800 uppercase">Approved</span>}
+            {documentData.status?.toLowerCase() === 'rejected' && <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-red-100 text-red-800 uppercase">Rejected</span>}
+            {(!documentData.status || documentData.status?.toLowerCase() === 'pending') && <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800 uppercase">Pending</span>}
           </div>
           <button onClick={handleClose} className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors">
             <X className="w-5 h-5" />
@@ -61,7 +62,7 @@ export const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
         
         {/* Body */}
         <div className="flex-1 overflow-auto bg-gray-50 flex flex-col">
-          {documentData.status === 'rejected' && documentData.rejectionReason && (
+          {documentData.status?.toLowerCase() === 'rejected' && documentData.rejectionReason && (
             <div className="bg-red-50 p-4 border-b border-red-100">
               <span className="font-bold text-red-800 text-sm block mb-1">Previous Rejection Reason:</span>
               <p className="text-red-700 text-sm">{documentData.rejectionReason}</p>
@@ -119,20 +120,24 @@ export const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
               
               {onApprove && onReject && (
                 <div className="flex gap-3">
-                  <button 
-                    onClick={() => setRejectMode(true)}
-                    disabled={isSubmitting}
-                    className="flex items-center gap-2 px-5 py-2 font-medium text-red-600 border border-red-200 bg-white hover:bg-red-50 disabled:opacity-50 rounded-lg"
-                  >
-                    <XCircle className="w-4 h-4" /> Reject Document
-                  </button>
-                  <button 
-                    onClick={() => onApprove(documentData.type)}
-                    disabled={isSubmitting}
-                    className="flex items-center gap-2 px-5 py-2 font-medium text-white bg-green-600 hover:bg-green-700 disabled:opacity-50 rounded-lg"
-                  >
-                    <CheckCircle className="w-4 h-4" /> Approve Document
-                  </button>
+                  {documentData.status?.toLowerCase() !== 'rejected' && (
+                    <button 
+                      onClick={() => setRejectMode(true)}
+                      disabled={isSubmitting}
+                      className="flex items-center gap-2 px-5 py-2 font-medium text-red-600 border border-red-200 bg-white hover:bg-red-50 disabled:opacity-50 rounded-lg"
+                    >
+                      <XCircle className="w-4 h-4" /> Reject Document
+                    </button>
+                  )}
+                  {documentData.status?.toLowerCase() !== 'approved' && (
+                    <button 
+                      onClick={() => onApprove(documentData.type)}
+                      disabled={isSubmitting}
+                      className="flex items-center gap-2 px-5 py-2 font-medium text-white bg-green-600 hover:bg-green-700 disabled:opacity-50 rounded-lg"
+                    >
+                      <CheckCircle className="w-4 h-4" /> Approve Document
+                    </button>
+                  )}
                 </div>
               )}
             </div>
