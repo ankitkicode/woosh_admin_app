@@ -13,6 +13,7 @@ import { RidesView } from '../modules/rides/pages/RidesView';
 import { RideDetailsPage } from '../modules/rides/pages/RideDetailsPage';
 import { SettingsView } from '../modules/settings/pages/SettingsView';
 import { CitiesPage } from '../modules/cities/pages/CitiesPage';
+import { CityFormPage } from '../modules/cities/pages/CityFormPage';
 import { SOSAlertsPage } from '../modules/sos/pages/SOSAlertsPage';
 import { DisputesPage } from '../modules/disputes/pages/DisputesPage';
 import { InsuranceClaimsPage } from '../modules/insurance/pages/InsuranceClaimsPage';
@@ -44,6 +45,8 @@ export function AppRouter() {
         <Route path="/disputes" element={<DisputesPage />} />
         <Route path="/insurance" element={<InsuranceClaimsPage />} />
         <Route path="/cities" element={<CitiesPage />} />
+        <Route path="/cities/add" element={<CityFormPage />} />
+        <Route path="/cities/:id/edit" element={<CityFormPage />} />
         <Route path="/payouts" element={<PayoutsView />} />
         <Route path="/settings" element={<SettingsView />} />
       </Route>
