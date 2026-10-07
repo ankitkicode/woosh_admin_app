@@ -17,6 +17,7 @@ import { CityFormPage } from '../modules/cities/pages/CityFormPage';
 import { SOSAlertsPage } from '../modules/sos/pages/SOSAlertsPage';
 import { DisputesPage } from '../modules/disputes/pages/DisputesPage';
 import { InsuranceClaimsPage } from '../modules/insurance/pages/InsuranceClaimsPage';
+import { SupportPage } from '../modules/support/pages/SupportPage';
 import { PayoutsView } from '../modules/payouts/pages/PayoutsView';
 import { AnalyticsView } from '../modules/dashboard/pages/AnalyticsView';
 
@@ -42,6 +43,7 @@ export function AppRouter() {
         <Route path="/passengers" element={<PassengersView />} />
         <Route path="/passengers/:id" element={<PassengerDetailsPage />} />
         <Route path="/sos" element={<SOSAlertsPage />} />
+        <Route path="/support" element={<SupportPage />} />
         <Route path="/disputes" element={<DisputesPage />} />
         <Route path="/insurance" element={<InsuranceClaimsPage />} />
         <Route path="/cities" element={<CitiesPage />} />

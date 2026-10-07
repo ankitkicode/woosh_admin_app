@@ -3,7 +3,7 @@ import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import {
   LayoutDashboard, Users, UserCircle, Map, LogOut, Settings,
-  MapPin, Menu, ChevronRight, ShieldAlert, FileText, Shield, Banknote, TrendingUp
+  MapPin, Menu, ChevronRight, ShieldAlert, FileText, Shield, Banknote, TrendingUp, MessageSquare
 } from 'lucide-react';
 import { cn } from '../utils/cn';
 import { logout } from '../../modules/auth/store/authSlice';
@@ -17,6 +17,7 @@ const navigation = [
   { name: 'Riders', href: '/riders', icon: UserCircle },
   { name: 'Passengers', href: '/passengers', icon: Users },
   { name: 'SOS Alerts', href: '/sos', icon: ShieldAlert },
+  { name: 'Support', href: '/support', icon: MessageSquare },
   { name: 'Disputes', href: '/disputes', icon: FileText },
   { name: 'Insurance', href: '/insurance', icon: Shield },
   { name: 'Payouts', href: '/payouts', icon: Banknote },
