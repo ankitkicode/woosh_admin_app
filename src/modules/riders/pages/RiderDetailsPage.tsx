@@ -18,16 +18,16 @@ export const RiderDetailsPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
-  
+
   const [data, setData] = useState<RiderDetailsResponse | null>(null);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
-  
+
   const [rejectModalOpen, setRejectModalOpen] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
-  
+
   const [docViewerOpen, setDocViewerOpen] = useState(false);
   const [docViewerData, setDocViewerData] = useState<{ title: string, data: DocumentData | null }>({ title: '', data: null });
   const [docReviewLoading, setDocReviewLoading] = useState(false);
@@ -145,7 +145,7 @@ export const RiderDetailsPage: React.FC = () => {
   if (error || !data?.profile) {
     return (
       <Card className="max-w-4xl mx-auto mt-12">
-        <EmptyState 
+        <EmptyState
           icon={<AlertCircle className="w-12 h-12 text-woosh-error" />}
           title="Error Loading Rider"
           description={error || 'Profile not found'}
@@ -179,11 +179,11 @@ export const RiderDetailsPage: React.FC = () => {
             <p className="text-sm text-woosh-muted mt-0.5">Joined {new Date(user.createdAt || profile.createdAt).toLocaleDateString()}</p>
           </div>
         </div>
-        
+
         {/* Action Buttons */}
         <div className="flex items-center gap-3">
-          <Button 
-            variant="ghost" 
+          <Button
+            variant="ghost"
             size="sm"
             onClick={handleDelete}
             disabled={actionLoading}
@@ -191,11 +191,11 @@ export const RiderDetailsPage: React.FC = () => {
           >
             <Trash2 size={16} /> Delete
           </Button>
-          
+
           {profile.kycStatus === 'under_review' && (
             <>
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 size="sm"
                 onClick={() => setRejectModalOpen(true)}
                 disabled={actionLoading}
@@ -203,7 +203,7 @@ export const RiderDetailsPage: React.FC = () => {
               >
                 <XCircle size={16} /> Reject
               </Button>
-              <Button 
+              <Button
                 size="sm"
                 onClick={handleApprove}
                 isLoading={actionLoading}
@@ -232,14 +232,14 @@ export const RiderDetailsPage: React.FC = () => {
           {/* Profile Card */}
           <Card>
             <CardHeader className="py-4">
-              <CardTitle className="flex items-center gap-2"><FileText className="w-4 h-4 text-woosh-primary"/> Personal Details</CardTitle>
+              <CardTitle className="flex items-center gap-2"><FileText className="w-4 h-4 text-woosh-primary" /> Personal Details</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="flex items-center gap-4 mb-6">
-                <Avatar 
-                  name={user.name || '?'} 
-                  size="lg" 
-                  src={profile.profileImage ? (profile.profileImage.startsWith('http') ? profile.profileImage : `${backendUrl}${profile.profileImage}`) : undefined} 
+                <Avatar
+                  name={user.name || '?'}
+                  size="lg"
+                  src={profile.profileImage ? (profile.profileImage.startsWith('http') ? profile.profileImage : `${backendUrl}${profile.profileImage}`) : undefined}
                   fallbackIcon={<Bike size={32} />}
                 />
                 <div>
@@ -267,7 +267,7 @@ export const RiderDetailsPage: React.FC = () => {
           {/* Vehicle Card */}
           <Card>
             <CardHeader className="py-4">
-              <CardTitle className="flex items-center gap-2"><Bike className="w-4 h-4 text-woosh-primary"/> Vehicle Details</CardTitle>
+              <CardTitle className="flex items-center gap-2"><Bike className="w-4 h-4 text-woosh-primary" /> Vehicle Details</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-5">
@@ -298,7 +298,7 @@ export const RiderDetailsPage: React.FC = () => {
           {/* Safety Checklist */}
           <Card>
             <CardHeader className="py-4">
-              <CardTitle className="flex items-center gap-2"><ShieldCheck className="w-4 h-4 text-woosh-primary"/> Safety Checklist</CardTitle>
+              <CardTitle className="flex items-center gap-2"><ShieldCheck className="w-4 h-4 text-woosh-primary" /> Safety Checklist</CardTitle>
             </CardHeader>
             <CardContent>
               {checklist.checkedAt ? (
@@ -329,7 +329,7 @@ export const RiderDetailsPage: React.FC = () => {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <Card>
               <CardContent className="p-5 flex items-center gap-4">
-                <div className="w-12 h-12 bg-emerald-50 rounded-xl flex items-center justify-center"><Wallet className="w-6 h-6 text-emerald-600"/></div>
+                <div className="w-12 h-12 bg-emerald-50 rounded-xl flex items-center justify-center"><Wallet className="w-6 h-6 text-emerald-600" /></div>
                 <div>
                   <div className="text-xs font-semibold text-woosh-muted uppercase tracking-wider mb-1">Wallet Balance</div>
                   <div className="text-xl font-bold text-woosh-dark">₹{profile.walletBalance?.toFixed(2) || '0.00'}</div>
@@ -338,7 +338,7 @@ export const RiderDetailsPage: React.FC = () => {
             </Card>
             <Card>
               <CardContent className="p-5 flex items-center gap-4">
-                <div className="w-12 h-12 bg-woosh-primary-light rounded-xl flex items-center justify-center"><Bike className="w-6 h-6 text-woosh-primary"/></div>
+                <div className="w-12 h-12 bg-woosh-primary-light rounded-xl flex items-center justify-center"><Bike className="w-6 h-6 text-woosh-primary" /></div>
                 <div>
                   <div className="text-xs font-semibold text-woosh-muted uppercase tracking-wider mb-1">Total Rides</div>
                   <div className="text-xl font-bold text-woosh-dark">{profile.totalRides || 0}</div>
@@ -347,7 +347,7 @@ export const RiderDetailsPage: React.FC = () => {
             </Card>
             <Card>
               <CardContent className="p-5 flex items-center gap-4">
-                <div className="w-12 h-12 bg-amber-50 rounded-xl flex items-center justify-center"><ShieldCheck className="w-6 h-6 text-amber-500"/></div>
+                <div className="w-12 h-12 bg-amber-50 rounded-xl flex items-center justify-center"><ShieldCheck className="w-6 h-6 text-amber-500" /></div>
                 <div>
                   <div className="text-xs font-semibold text-woosh-muted uppercase tracking-wider mb-1">Rating</div>
                   <div className="text-xl font-bold text-woosh-dark">{profile.rating?.toFixed(1) || '0.0'} ⭐</div>
@@ -368,9 +368,9 @@ export const RiderDetailsPage: React.FC = () => {
                     const title = doc.type.split('_').map((word: string) => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
                     const imageUrl = doc.url.startsWith('http') ? doc.url : `${backendUrl}${doc.url}`;
                     const isPdf = doc.url.toLowerCase().endsWith('.pdf');
-                    
+
                     return (
-                      <div 
+                      <div
                         key={index}
                         onClick={() => viewDocument(title, doc)}
                         className="group cursor-pointer rounded-xl border border-woosh-border overflow-hidden hover:border-woosh-primary hover:shadow-md transition-all relative"
@@ -380,7 +380,7 @@ export const RiderDetailsPage: React.FC = () => {
                           {doc.status?.toLowerCase() === 'rejected' && <Badge variant="error">Rejected</Badge>}
                           {(!doc.status || doc.status?.toLowerCase() === 'pending') && <Badge variant="warning">Pending</Badge>}
                         </div>
-                        
+
                         <div className="aspect-video bg-woosh-surface relative flex items-center justify-center border-b border-woosh-divider">
                           {isPdf ? (
                             <div className="flex flex-col items-center justify-center text-woosh-placeholder">
@@ -388,8 +388,8 @@ export const RiderDetailsPage: React.FC = () => {
                               <span className="text-xs font-semibold">PDF Document</span>
                             </div>
                           ) : (
-                            <img 
-                              src={imageUrl} 
+                            <img
+                              src={imageUrl}
                               alt={title}
                               className="w-full h-full object-cover"
                               onError={(e) => { (e.target as HTMLImageElement).src = 'https://placehold.co/400x300/f8fafc/94a3b8?text=No+Preview'; }}
@@ -408,7 +408,7 @@ export const RiderDetailsPage: React.FC = () => {
                   })}
                 </div>
               ) : (
-                <EmptyState 
+                <EmptyState
                   icon={<FileText className="w-10 h-10 text-woosh-placeholder" />}
                   title="No documents uploaded"
                   description="This rider has not uploaded any KYC documents yet."
@@ -433,7 +433,7 @@ export const RiderDetailsPage: React.FC = () => {
                   <div key={ride._id} className="p-4 flex items-center justify-between hover:bg-woosh-surface/50 transition-colors">
                     <div>
                       <p className="text-sm font-semibold text-woosh-dark">
-                        {new Date(ride.createdAt).toLocaleDateString()} at {new Date(ride.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                        {new Date(ride.createdAt).toLocaleDateString()} at {new Date(ride.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </p>
                       <p className="text-xs text-woosh-muted mt-0.5 truncate max-w-[200px] sm:max-w-[300px]">
                         {ride.pickup?.address || 'Pickup'} → {ride.drop?.address || 'Drop'}
@@ -517,7 +517,7 @@ export const RiderDetailsPage: React.FC = () => {
       </Modal>
 
       {/* Document Viewer Modal */}
-      <DocumentViewerModal 
+      <DocumentViewerModal
         isOpen={docViewerOpen}
         onClose={() => setDocViewerOpen(false)}
         title={docViewerData.title}

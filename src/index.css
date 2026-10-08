@@ -19,6 +19,13 @@
   --color-woosh-input-bg: #FFFFFF;
   --color-woosh-bg: #F8FAFC;
 
+  /* ─── Sidebar (Dark Theme) ─── */
+  --color-woosh-sidebar-bg: #151515;
+  --color-woosh-sidebar-hover: #262626;
+  --color-woosh-sidebar-text: #FFFFFF;
+  --color-woosh-sidebar-muted: #A3A3A3;
+  --color-woosh-sidebar-border: #262626;
+
   /* ─── Semantic Colors ─── */
   --color-woosh-success: #10B981;
   --color-woosh-success-light: #D1FAE5;

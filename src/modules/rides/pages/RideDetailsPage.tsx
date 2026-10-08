@@ -15,7 +15,7 @@ export function RideDetailsPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
-  
+
   const [data, setData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -95,7 +95,7 @@ export function RideDetailsPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Column - Ride Info & Users */}
         <div className="lg:col-span-2 space-y-6">
-          
+
           {/* Map/Location Card */}
           <Card>
             <CardHeader className="py-4 border-b border-woosh-divider bg-woosh-surface/30">
@@ -114,10 +114,10 @@ export function RideDetailsPage() {
             <CardContent className="p-0">
               <div className="h-[350px] w-full border-b border-woosh-divider bg-woosh-surface/20 relative">
                 {ride.pickup?.latitude && ride.drop?.latitude ? (
-                  <RideMap 
-                    pickup={ride.pickup} 
-                    drop={ride.drop} 
-                    liveLocation={liveLocation} 
+                  <RideMap
+                    pickup={ride.pickup}
+                    drop={ride.drop}
+                    liveLocation={liveLocation}
                   />
                 ) : (
                   <div className="absolute inset-0 flex items-center justify-center text-woosh-muted text-sm">
@@ -125,22 +125,22 @@ export function RideDetailsPage() {
                   </div>
                 )}
               </div>
-              
+
               <div className="p-6">
                 <div className="grid grid-cols-3 gap-4">
                   <div>
                     <p className="text-xs text-woosh-muted uppercase tracking-wider font-semibold mb-1">Distance</p>
                     <p className="font-medium text-woosh-dark">{ride.distanceKm ? `${ride.distanceKm} km` : 'N/A'}</p>
                   </div>
-                <div>
-                  <p className="text-xs text-woosh-muted uppercase tracking-wider font-semibold mb-1">Duration</p>
-                  <p className="font-medium text-woosh-dark">{ride.durationMinutes ? `${ride.durationMinutes} mins` : 'N/A'}</p>
+                  <div>
+                    <p className="text-xs text-woosh-muted uppercase tracking-wider font-semibold mb-1">Duration</p>
+                    <p className="font-medium text-woosh-dark">{ride.durationMinutes ? `${ride.durationMinutes} mins` : 'N/A'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-woosh-muted uppercase tracking-wider font-semibold mb-1">OTP</p>
+                    <span className="font-mono font-bold text-woosh-primary bg-woosh-primary-light px-2 py-1 rounded">{ride.otp}</span>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-xs text-woosh-muted uppercase tracking-wider font-semibold mb-1">OTP</p>
-                  <span className="font-mono font-bold text-woosh-primary bg-woosh-primary-light px-2 py-1 rounded">{ride.otp}</span>
-                </div>
-              </div>
               </div>
             </CardContent>
           </Card>
@@ -168,7 +168,7 @@ export function RideDetailsPage() {
                     <p className="text-sm text-woosh-muted">{ride.passenger?.phoneNumber}</p>
                   </div>
                 </div>
-                
+
                 {ride.childProfile && (
                   <div className="mt-4 bg-indigo-50 border border-indigo-100 rounded-lg p-3 flex items-center gap-3">
                     <Avatar name={ride.childProfile.name} size="sm" className="bg-indigo-200 text-indigo-700" />
@@ -178,7 +178,7 @@ export function RideDetailsPage() {
                     </div>
                   </div>
                 )}
-                
+
                 {ride.rating?.passengerRating && (
                   <div className="mt-4 pt-4 border-t border-woosh-divider">
                     <p className="text-xs text-woosh-muted uppercase tracking-wider font-semibold mb-1">Rating Given to Rider</p>
@@ -216,7 +216,7 @@ export function RideDetailsPage() {
                         <p className="text-sm text-woosh-muted">{ride.rider?.phoneNumber}</p>
                       </div>
                     </div>
-                    
+
                     {riderProfile && (
                       <div className="mt-4 bg-woosh-surface rounded-lg p-3">
                         <div className="flex justify-between items-center mb-1">
@@ -226,7 +226,7 @@ export function RideDetailsPage() {
                         <p className="text-sm font-medium text-woosh-dark">{riderProfile.vehicleColor} {riderProfile.vehicleModel}</p>
                       </div>
                     )}
-                    
+
                     {ride.rating?.riderRating && (
                       <div className="mt-4 pt-4 border-t border-woosh-divider">
                         <p className="text-xs text-woosh-muted uppercase tracking-wider font-semibold mb-1">Rating Given to Passenger</p>
@@ -246,7 +246,7 @@ export function RideDetailsPage() {
               </CardContent>
             </Card>
           </div>
-          
+
           {/* Alerts & Disputes (if any) */}
           {(sosAlerts.length > 0 || disputes.length > 0) && (
             <Card className="border-red-100 shadow-[0_4px_20px_rgba(239,68,68,0.05)]">
@@ -273,7 +273,7 @@ export function RideDetailsPage() {
                     </div>
                   </div>
                 )}
-                
+
                 {disputes.length > 0 && (
                   <div className="p-4">
                     <h4 className="text-xs font-bold uppercase tracking-wider text-amber-600 mb-3">Disputes Raised</h4>
@@ -318,7 +318,7 @@ export function RideDetailsPage() {
                 <span className="text-sm text-woosh-muted">Payment Status</span>
                 <Badge variant={ride.paymentStatus === 'paid' ? 'success' : 'warning'} className="uppercase">{ride.paymentStatus}</Badge>
               </div>
-              
+
               <div className="pt-4 border-t border-woosh-divider space-y-2">
                 <div className="flex justify-between items-center text-sm">
                   <span className="text-woosh-muted">Estimated Fare</span>
@@ -355,14 +355,14 @@ export function RideDetailsPage() {
             <CardContent className="p-5">
               <div className="relative pl-6 space-y-6">
                 <div className="absolute top-2 left-[11px] bottom-2 w-px bg-woosh-divider" />
-                
+
                 {/* Requested */}
                 <div className="relative">
                   <div className="absolute -left-[28px] top-1 w-2.5 h-2.5 rounded-full bg-woosh-muted ring-4 ring-white" />
                   <p className="text-sm font-medium text-woosh-dark">Ride Requested</p>
                   <p className="text-xs text-woosh-muted">{formatDate(ride.createdAt)}</p>
                 </div>
-                
+
                 {/* Accepted */}
                 {ride.assignedRider && (
                   <div className="relative">
@@ -370,7 +370,7 @@ export function RideDetailsPage() {
                     <p className="text-sm font-medium text-woosh-dark">Rider Accepted</p>
                   </div>
                 )}
-                
+
                 {/* Arrived */}
                 {ride.riderArrivedAt && (
                   <div className="relative">

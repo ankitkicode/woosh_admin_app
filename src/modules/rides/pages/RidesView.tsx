@@ -23,12 +23,12 @@ const STATUS_TABS = [
 export function RidesView() {
   const navigate = useNavigate();
   const { toast } = useToast();
-  
+
   const [rides, setRides] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  
+
   const [statusTab, setStatusTab] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
