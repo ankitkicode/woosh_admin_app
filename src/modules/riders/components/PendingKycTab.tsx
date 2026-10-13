@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { apiClient } from '../../../common/utils/apiClient';
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '../../../common/components/Table';
 import { Button } from '../../../common/components/Button';
-import { Check, X } from 'lucide-react';
+import { Check, X, Eye } from 'lucide-react';
 
 export function PendingKycTab() {
+  const navigate = useNavigate();
   const [riders, setRiders] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -77,6 +79,9 @@ export function PendingKycTab() {
               <TableCell>{new Date(profile.createdAt).toLocaleDateString()}</TableCell>
               <TableCell className="text-right">
                 <div className="flex justify-end gap-2">
+                  <Button variant="ghost" size="sm" onClick={() => navigate(`/riders/${profile._id}`)} className="text-woosh-primary hover:bg-woosh-primary-light">
+                    <Eye size={14} className="mr-1" /> Review
+                  </Button>
                   <Button size="sm" onClick={() => handleApprove(profile._id)} className="bg-green-600 hover:bg-green-700 text-white border-transparent">
                     <Check size={14} className="mr-1" /> Approve
                   </Button>

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { fetchRiderById, approveRider, rejectRider, reviewRiderDocument, deleteRider, type RiderDetailsResponse } from '../api/ridersApi';
-import { ArrowLeft, CheckCircle, XCircle, FileText, AlertCircle, Eye, Bike, ShieldCheck, Wallet, Trash2 } from 'lucide-react';
+import { ArrowLeft, CheckCircle, XCircle, FileText, AlertCircle, Eye, Bike, ShieldCheck, Wallet, Trash2, AlertTriangle, Edit3, Check } from 'lucide-react';
 import { DocumentViewerModal } from '../components/DocumentViewerModal';
 import type { DocumentData } from '../components/DocumentViewerModal';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../common/components/Card';
@@ -14,6 +14,16 @@ import { SkeletonCard } from '../../../common/components/Skeleton';
 import { EmptyState } from '../../../common/components/EmptyState';
 import { Avatar } from '../../../common/components/Avatar';
 
+const QUICK_REJECTION_REASONS = [
+  'Blurry or unreadable document photo',
+  'Expired Driving License',
+  'Invalid Vehicle Registration (RC)',
+  'Aadhaar / Identity document mismatch',
+  'Vehicle details mismatch with registration',
+  'Incomplete KYC document submission',
+  'Failed background verification'
+];
+
 export const RiderDetailsPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -25,9 +35,14 @@ export const RiderDetailsPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
 
+  // Approve modal state
+  const [approveModalOpen, setApproveModalOpen] = useState(false);
+
+  // Reject modal state
   const [rejectModalOpen, setRejectModalOpen] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
 
+  // Document viewer modal state
   const [docViewerOpen, setDocViewerOpen] = useState(false);
   const [docViewerData, setDocViewerData] = useState<{ title: string, data: DocumentData | null }>({ title: '', data: null });
   const [docReviewLoading, setDocReviewLoading] = useState(false);
@@ -57,8 +72,9 @@ export const RiderDetailsPage: React.FC = () => {
     try {
       setActionLoading(true);
       await approveRider(id);
-      toast('success', 'Rider approved successfully');
-      loadData(); // Reload to get updated status
+      setApproveModalOpen(false);
+      toast('success', 'Rider KYC approved successfully');
+      await loadData();
     } catch (err: any) {
       toast('error', 'Approval failed', err.message);
     } finally {
@@ -70,10 +86,11 @@ export const RiderDetailsPage: React.FC = () => {
     if (!id || !rejectReason.trim()) return;
     try {
       setActionLoading(true);
-      await rejectRider(id, rejectReason);
+      await rejectRider(id, rejectReason.trim());
       setRejectModalOpen(false);
-      toast('success', 'Rider application rejected');
-      loadData(); // Reload to get updated status
+      setRejectReason('');
+      toast('success', 'Rider KYC rejected successfully');
+      await loadData();
     } catch (err: any) {
       toast('error', 'Rejection failed', err.message);
     } finally {
@@ -108,7 +125,7 @@ export const RiderDetailsPage: React.FC = () => {
       await reviewRiderDocument(id, docType, status, reason);
       setDocViewerOpen(false);
       toast('success', `Document ${status} successfully`);
-      loadData(); // Reload to get updated document status
+      await loadData();
     } catch (err: any) {
       toast('error', 'Document review failed', err.message);
     } finally {
@@ -159,6 +176,7 @@ export const RiderDetailsPage: React.FC = () => {
   const { profile } = data;
   const user = profile.user || {};
   const checklist = profile.safetyChecklist || {};
+  const normalizedKycStatus = (profile.kycStatus || 'pending').toLowerCase();
 
   return (
     <div className="space-y-6 pb-24">
@@ -169,19 +187,21 @@ export const RiderDetailsPage: React.FC = () => {
             <ArrowLeft className="w-4 h-4" />
           </Button>
           <div>
-            <h1 className="text-xl font-bold text-woosh-dark flex items-center gap-3">
-              Rider Profile
-              {profile.kycStatus === 'approved' && <Badge variant="success" dot>Approved</Badge>}
-              {profile.kycStatus === 'under_review' && <Badge variant="warning" dot>Review Pending</Badge>}
-              {profile.kycStatus === 'rejected' && <Badge variant="error" dot>Rejected</Badge>}
-              {profile.kycStatus === 'pending' && <Badge variant="neutral" dot>Pending</Badge>}
-            </h1>
-            <p className="text-sm text-woosh-muted mt-0.5">Joined {new Date(user.createdAt || profile.createdAt).toLocaleDateString()}</p>
+            <div className="flex items-center gap-3">
+              <h1 className="text-xl font-bold text-woosh-dark">Rider Profile</h1>
+              {normalizedKycStatus === 'approved' && <Badge variant="success" dot>Approved</Badge>}
+              {normalizedKycStatus === 'under_review' && <Badge variant="warning" dot>Under Review</Badge>}
+              {normalizedKycStatus === 'rejected' && <Badge variant="error" dot>Rejected</Badge>}
+              {normalizedKycStatus === 'pending' && <Badge variant="neutral" dot>Pending Review</Badge>}
+            </div>
+            <p className="text-sm text-woosh-muted mt-0.5">
+              Joined {new Date(user.createdAt || profile.createdAt).toLocaleDateString()} • ID: <span className="font-mono text-xs">{profile._id}</span>
+            </p>
           </div>
         </div>
 
         {/* Action Buttons */}
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2.5">
           <Button
             variant="ghost"
             size="sm"
@@ -192,40 +212,107 @@ export const RiderDetailsPage: React.FC = () => {
             <Trash2 size={16} /> Delete
           </Button>
 
-          {profile.kycStatus === 'under_review' && (
+          {/* If Pending or Under Review: Allow Approve and Reject */}
+          {(normalizedKycStatus === 'under_review' || normalizedKycStatus === 'pending') && (
             <>
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setRejectModalOpen(true)}
+                onClick={() => {
+                  setRejectReason('');
+                  setRejectModalOpen(true);
+                }}
                 disabled={actionLoading}
-                className="text-woosh-error border-woosh-error hover:bg-red-50"
+                className="text-red-600 border-red-200 hover:bg-red-50"
               >
-                <XCircle size={16} /> Reject
+                <XCircle size={16} className="mr-1.5" /> Reject KYC
               </Button>
               <Button
                 size="sm"
-                onClick={handleApprove}
+                onClick={() => setApproveModalOpen(true)}
                 isLoading={actionLoading}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white border-transparent"
+                className="bg-emerald-600 hover:bg-emerald-700 text-white border-transparent shadow-sm"
               >
-                <CheckCircle size={16} /> Approve KYC
+                <CheckCircle size={16} className="mr-1.5" /> Approve KYC
+              </Button>
+            </>
+          )}
+
+          {/* If Approved: Allow Revoke / Reject */}
+          {normalizedKycStatus === 'approved' && (
+            <>
+              <div className="hidden sm:inline-flex items-center px-3 py-1 rounded-lg bg-emerald-50 text-emerald-800 text-xs font-semibold border border-emerald-200">
+                <Check className="w-3.5 h-3.5 mr-1 text-emerald-600" /> Active & Verified
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setRejectReason('');
+                  setRejectModalOpen(true);
+                }}
+                disabled={actionLoading}
+                className="text-red-600 border-red-200 hover:bg-red-50"
+              >
+                <XCircle size={16} className="mr-1.5" /> Revoke / Reject
+              </Button>
+            </>
+          )}
+
+          {/* If Rejected: Allow Re-Approve or Edit Rejection Reason */}
+          {normalizedKycStatus === 'rejected' && (
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setRejectReason(profile.kycRejectionReason || '');
+                  setRejectModalOpen(true);
+                }}
+                disabled={actionLoading}
+                className="text-amber-700 border-amber-300 hover:bg-amber-50"
+              >
+                <Edit3 size={16} className="mr-1.5" /> Edit Reason
+              </Button>
+              <Button
+                size="sm"
+                onClick={() => setApproveModalOpen(true)}
+                isLoading={actionLoading}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white border-transparent shadow-sm"
+              >
+                <CheckCircle size={16} className="mr-1.5" /> Re-Approve KYC
               </Button>
             </>
           )}
         </div>
       </div>
 
-      {profile.kycStatus === 'rejected' && profile.kycRejectionReason && (
-        <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex gap-3 items-start">
-          <AlertCircle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
-          <div>
-            <h4 className="text-sm font-bold text-red-800">Rejection Reason</h4>
-            <p className="text-sm text-red-600 mt-1">{profile.kycRejectionReason}</p>
+      {/* Rejection Alert Banner */}
+      {normalizedKycStatus === 'rejected' && (
+        <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="flex gap-3 items-start">
+            <AlertTriangle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+            <div>
+              <h4 className="text-sm font-bold text-red-900">KYC Application Rejected</h4>
+              <p className="text-sm text-red-700 mt-0.5">
+                <span className="font-semibold">Reason:</span> {profile.kycRejectionReason || 'No specific reason provided.'}
+              </p>
+              <p className="text-xs text-red-500 mt-1">
+                The rider has been notified in their app and cannot take rides until their profile is approved.
+              </p>
+            </div>
           </div>
+          <Button
+            size="sm"
+            onClick={() => setApproveModalOpen(true)}
+            className="bg-emerald-600 hover:bg-emerald-700 text-white border-transparent shrink-0"
+          >
+            <CheckCircle size={14} className="mr-1.5" /> Re-Approve KYC
+          </Button>
         </div>
       )}
 
+      {/* Main Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Column: Personal & Vehicle Info */}
         <div className="lg:col-span-1 space-y-6">
@@ -256,7 +343,15 @@ export const RiderDetailsPage: React.FC = () => {
                   <span className="text-xs font-semibold text-woosh-muted uppercase tracking-wider block mb-1">Account Status</span>
                   <div className="mt-1">
                     <Badge variant={user.isActive ? 'success' : 'error'} dot>
-                      {user.isActive ? 'Active' : 'Banned'}
+                      {user.isActive ? 'Active' : 'Disabled'}
+                    </Badge>
+                  </div>
+                </div>
+                <div>
+                  <span className="text-xs font-semibold text-woosh-muted uppercase tracking-wider block mb-1">Online Status</span>
+                  <div className="mt-1">
+                    <Badge variant={profile.isOnline ? 'success' : 'neutral'} dot>
+                      {profile.isOnline ? 'Online (Accepting rides)' : 'Offline'}
                     </Badge>
                   </div>
                 </div>
@@ -309,6 +404,7 @@ export const RiderDetailsPage: React.FC = () => {
                     { label: 'First Aid Kit', value: checklist.firstAidKitAvailable },
                     { label: 'Sanitary Pads', value: checklist.sanitaryPadsAvailable },
                     { label: 'Phone Battery Ok', value: checklist.phoneBatteryCheck },
+                    { label: 'Face Verified', value: checklist.faceVerified },
                   ].map((item, idx) => (
                     <div key={idx} className="flex items-center justify-between pb-2 border-b border-woosh-divider last:border-0 last:pb-0">
                       <span className="text-sm text-woosh-dark">{item.label}</span>
@@ -358,50 +454,108 @@ export const RiderDetailsPage: React.FC = () => {
 
           {/* KYC Documents */}
           <Card>
-            <CardHeader className="py-5">
-              <CardTitle>KYC Documents Submitted</CardTitle>
+            <CardHeader className="py-4 border-b border-woosh-divider flex flex-row items-center justify-between">
+              <div>
+                <CardTitle>KYC Documents Submitted</CardTitle>
+                <p className="text-xs text-woosh-muted mt-0.5">Click any document to inspect full preview or verify individually</p>
+              </div>
+              <span className="text-xs font-medium px-2.5 py-1 bg-gray-100 text-gray-700 rounded-full">
+                {profile.documents?.length || 0} Document(s)
+              </span>
             </CardHeader>
-            <CardContent>
+            <CardContent className="pt-5">
               {profile.documents && profile.documents.length > 0 ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                   {profile.documents.map((doc: any, index: number) => {
-                    const title = doc.type.split('_').map((word: string) => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
-                    const imageUrl = doc.url.startsWith('http') ? doc.url : `${backendUrl}${doc.url}`;
-                    const isPdf = doc.url.toLowerCase().endsWith('.pdf');
+                    const title = doc.type ? doc.type.split('_').map((word: string) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(' ') : 'Document';
+                    const imageUrl = doc.url ? (doc.url.startsWith('http') ? doc.url : `${backendUrl}${doc.url}`) : '';
+                    const isPdf = doc.url ? doc.url.toLowerCase().endsWith('.pdf') : false;
+                    const docStatus = (doc.status || 'pending').toLowerCase();
 
                     return (
                       <div
                         key={index}
-                        onClick={() => viewDocument(title, doc)}
-                        className="group cursor-pointer rounded-xl border border-woosh-border overflow-hidden hover:border-woosh-primary hover:shadow-md transition-all relative"
+                        className="group rounded-xl border border-woosh-border overflow-hidden hover:border-woosh-primary hover:shadow-md transition-all relative flex flex-col bg-white"
                       >
-                        <div className="absolute top-2 right-2 z-10">
-                          {doc.status?.toLowerCase() === 'approved' && <Badge variant="success">Approved</Badge>}
-                          {doc.status?.toLowerCase() === 'rejected' && <Badge variant="error">Rejected</Badge>}
-                          {(!doc.status || doc.status?.toLowerCase() === 'pending') && <Badge variant="warning">Pending</Badge>}
+                        <div className="absolute top-2 right-2 z-10 pointer-events-none">
+                          {docStatus === 'approved' && <Badge variant="success">Approved</Badge>}
+                          {docStatus === 'rejected' && <Badge variant="error">Rejected</Badge>}
+                          {docStatus === 'pending' && <Badge variant="warning">Pending</Badge>}
                         </div>
 
-                        <div className="aspect-video bg-woosh-surface relative flex items-center justify-center border-b border-woosh-divider">
+                        {/* Thumbnail */}
+                        <div 
+                          onClick={() => viewDocument(title, doc)}
+                          className="aspect-video bg-woosh-surface relative flex items-center justify-center border-b border-woosh-divider cursor-pointer"
+                        >
                           {isPdf ? (
                             <div className="flex flex-col items-center justify-center text-woosh-placeholder">
-                              <FileText className="w-10 h-10 mb-2" />
-                              <span className="text-xs font-semibold">PDF Document</span>
+                              <FileText className="w-10 h-10 mb-2 text-indigo-500" />
+                              <span className="text-xs font-semibold text-gray-700">PDF Document</span>
                             </div>
-                          ) : (
+                          ) : imageUrl ? (
                             <img
                               src={imageUrl}
                               alt={title}
                               className="w-full h-full object-cover"
                               onError={(e) => { (e.target as HTMLImageElement).src = 'https://placehold.co/400x300/f8fafc/94a3b8?text=No+Preview'; }}
                             />
+                          ) : (
+                            <div className="flex flex-col items-center justify-center text-gray-400">
+                              <FileText className="w-8 h-8 mb-1" />
+                              <span className="text-xs">No File</span>
+                            </div>
                           )}
                           <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
-                            <Eye className="w-8 h-8 text-white opacity-0 group-hover:opacity-100 transition-opacity drop-shadow-md" />
+                            <span className="px-3 py-1.5 rounded-lg bg-black/75 text-white text-xs font-medium opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1.5 drop-shadow-md">
+                              <Eye className="w-3.5 h-3.5" /> Inspect
+                            </span>
                           </div>
                         </div>
-                        <div className="p-3 bg-white">
-                          <div className="text-sm font-semibold text-woosh-dark truncate pr-16">{title}</div>
-                          <div className="text-xs text-woosh-muted mt-0.5">{new Date(doc.uploadedAt || new Date()).toLocaleDateString()}</div>
+
+                        {/* Info & Quick Actions */}
+                        <div className="p-3 bg-white flex-1 flex flex-col justify-between">
+                          <div>
+                            <div className="text-sm font-semibold text-woosh-dark truncate pr-16" title={title}>{title}</div>
+                            {docStatus === 'rejected' && doc.rejectionReason && (
+                              <p className="text-xs text-red-600 line-clamp-1 mt-1 font-medium" title={doc.rejectionReason}>
+                                Reason: {doc.rejectionReason}
+                              </p>
+                            )}
+                          </div>
+                          
+                          <div className="mt-3 pt-2.5 border-t border-gray-100 flex items-center justify-between gap-2">
+                            <button
+                              type="button"
+                              onClick={() => viewDocument(title, doc)}
+                              className="text-xs text-woosh-primary font-medium hover:underline flex items-center gap-1"
+                            >
+                              <Eye size={12} /> View Full
+                            </button>
+
+                            <div className="flex items-center gap-1.5">
+                              {docStatus !== 'approved' && (
+                                <button
+                                  type="button"
+                                  title="Approve Document"
+                                  onClick={() => handleReviewDocument(doc.type, 'approved')}
+                                  className="p-1 text-emerald-600 hover:bg-emerald-50 rounded transition-colors"
+                                >
+                                  <CheckCircle size={15} />
+                                </button>
+                              )}
+                              {docStatus !== 'rejected' && (
+                                <button
+                                  type="button"
+                                  title="Reject Document"
+                                  onClick={() => viewDocument(title, doc)}
+                                  className="p-1 text-red-500 hover:bg-red-50 rounded transition-colors"
+                                >
+                                  <XCircle size={15} />
+                                </button>
+                              )}
+                            </div>
+                          </div>
                         </div>
                       </div>
                     );
@@ -491,6 +645,59 @@ export const RiderDetailsPage: React.FC = () => {
         </Card>
       </div>
 
+      {/* Approve Confirmation Modal */}
+      <Modal
+        isOpen={approveModalOpen}
+        onClose={() => setApproveModalOpen(false)}
+        title="Approve Rider KYC Application"
+        footer={
+          <>
+            <Button variant="outline" size="sm" onClick={() => setApproveModalOpen(false)} disabled={actionLoading}>
+              Cancel
+            </Button>
+            <Button 
+              size="sm" 
+              onClick={handleApprove} 
+              isLoading={actionLoading} 
+              className="bg-emerald-600 hover:bg-emerald-700 text-white border-transparent"
+            >
+              <CheckCircle size={16} className="mr-1.5" /> Confirm & Approve
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl flex items-start gap-3">
+            <CheckCircle className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+            <div className="text-sm text-emerald-900">
+              <p className="font-bold">Are you sure you want to approve this rider?</p>
+              <p className="mt-1 text-emerald-800 text-xs leading-relaxed">
+                Approving this profile will automatically verify all submitted KYC documents, mark the user's role as active rider, and send an instant push notification permitting them to go online and accept ride bookings.
+              </p>
+            </div>
+          </div>
+
+          <div className="bg-gray-50 p-3.5 rounded-xl text-xs space-y-2 border border-gray-100">
+            <div className="flex justify-between">
+              <span className="text-gray-500">Rider Name:</span>
+              <span className="font-semibold text-gray-900">{user.name || 'Not Provided'}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-500">Phone Number:</span>
+              <span className="font-semibold text-gray-900">{user.phoneNumber}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-500">Vehicle Number:</span>
+              <span className="font-mono font-bold text-gray-900">{profile.vehicleNumber || '—'}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-500">Documents Attached:</span>
+              <span className="font-semibold text-gray-900">{profile.documents?.length || 0}</span>
+            </div>
+          </div>
+        </div>
+      </Modal>
+
       {/* Rejection Modal */}
       <Modal
         isOpen={rejectModalOpen}
@@ -498,21 +705,55 @@ export const RiderDetailsPage: React.FC = () => {
         title="Reject KYC Application"
         footer={
           <>
-            <Button variant="outline" size="sm" onClick={() => setRejectModalOpen(false)}>Cancel</Button>
-            <Button size="sm" onClick={handleReject} disabled={actionLoading || !rejectReason.trim()} className="bg-red-600 hover:bg-red-700 border-transparent text-white">
-              Confirm Rejection
+            <Button variant="outline" size="sm" onClick={() => setRejectModalOpen(false)} disabled={actionLoading}>
+              Cancel
+            </Button>
+            <Button 
+              size="sm" 
+              onClick={handleReject} 
+              isLoading={actionLoading} 
+              disabled={actionLoading || !rejectReason.trim()} 
+              className="bg-red-600 hover:bg-red-700 border-transparent text-white"
+            >
+              <XCircle size={16} className="mr-1.5" /> Confirm Rejection
             </Button>
           </>
         }
       >
         <div className="space-y-4">
-          <p className="text-sm text-woosh-muted">Please provide a reason for rejecting this rider's KYC application. This will be shown to the rider.</p>
-          <Textarea
-            value={rejectReason}
-            onChange={(e) => setRejectReason(e.target.value)}
-            placeholder="e.g. Aadhaar card image is blurry, Driving License is expired..."
-            rows={4}
-          />
+          <p className="text-sm text-woosh-muted">
+            Please provide a specific reason for rejecting this rider's KYC application. This reason will be shown to the rider in their mobile app to explain why their profile was rejected and what to re-submit.
+          </p>
+
+          <div>
+            <span className="text-xs font-semibold text-gray-700 block mb-2">Quick Rejection Reason Presets:</span>
+            <div className="flex flex-wrap gap-1.5">
+              {QUICK_REJECTION_REASONS.map((reason, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => setRejectReason(reason)}
+                  className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
+                    rejectReason === reason 
+                      ? 'bg-red-50 border-red-300 text-red-700 font-semibold' 
+                      : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'
+                  }`}
+                >
+                  {reason}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <label className="text-xs font-semibold text-gray-700 block mb-1">Detailed Reason (Required):</label>
+            <Textarea
+              value={rejectReason}
+              onChange={(e) => setRejectReason(e.target.value)}
+              placeholder="e.g. Aadhaar card image is blurry, Driving License has expired, Vehicle registration number does not match..."
+              rows={4}
+            />
+          </div>
         </div>
       </Modal>
 

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { fetchAllRiders, type RiderListResponse } from '../api/ridersApi';
-import { Search, Eye } from 'lucide-react';
+import { Search, Eye, Bike } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../common/components/Card';
 import { Badge } from '../../../common/components/Badge';
 import { Avatar } from '../../../common/components/Avatar';
@@ -10,8 +10,15 @@ import { EmptyState } from '../../../common/components/EmptyState';
 import { SkeletonTable } from '../../../common/components/Skeleton';
 import { Input } from '../../../common/components/Input';
 import { Button } from '../../../common/components/Button';
-import { Select } from '../../../common/components/Select';
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '../../../common/components/Table';
+
+const STATUS_TABS = [
+  { id: 'all', label: 'All Riders' },
+  { id: 'under_review', label: 'Under Review' },
+  { id: 'pending', label: 'Pending' },
+  { id: 'approved', label: 'Approved' },
+  { id: 'rejected', label: 'Rejected' },
+];
 
 export const RidersListPage: React.FC = () => {
   const navigate = useNavigate();
@@ -46,8 +53,14 @@ export const RidersListPage: React.FC = () => {
     loadRiders();
   };
 
+  const handleTabChange = (newStatus: string) => {
+    setStatus(newStatus);
+    setPage(1);
+  };
+
   const getStatusBadge = (kycStatus: string) => {
-    switch (kycStatus) {
+    const s = (kycStatus || '').toLowerCase();
+    switch (s) {
       case 'approved': return <Badge variant="success" dot>Approved</Badge>;
       case 'under_review': return <Badge variant="warning" dot>Under Review</Badge>;
       case 'rejected': return <Badge variant="error" dot>Rejected</Badge>;
@@ -57,45 +70,69 @@ export const RidersListPage: React.FC = () => {
 
   return (
     <div className="space-y-5">
-      <div>
-        <h1 className="text-xl font-bold text-woosh-dark">Rider Management</h1>
-        <p className="text-sm text-woosh-muted mt-0.5">View and manage all riders on the platform</p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-bold text-woosh-dark">Rider Management</h1>
+          <p className="text-sm text-woosh-muted mt-0.5">Review KYC applications, approve verified drivers, and manage active riders</p>
+        </div>
       </div>
 
-      {/* Filters */}
+      {/* Filter Tabs & Search */}
       <Card>
-        <CardContent className="py-3">
+        <CardContent className="p-4 space-y-4">
+          {/* Quick status tabs */}
+          <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none border-b border-gray-100">
+            {STATUS_TABS.map((tab) => {
+              const isActive = status === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => handleTabChange(tab.id)}
+                  className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${
+                    isActive
+                      ? 'bg-woosh-primary text-white shadow-sm'
+                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                  }`}
+                >
+                  {tab.label}
+                  {isActive && data?.total !== undefined && (
+                    <span className="ml-1.5 px-1.5 py-0.5 rounded-full bg-white/20 text-[10px]">
+                      {data.total}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Search bar */}
           <form onSubmit={handleSearch} className="flex flex-col sm:flex-row gap-3">
             <div className="flex-1">
               <Input
                 icon={<Search size={16} />}
-                placeholder="Search by name or phone..."
+                placeholder="Search riders by name, phone number..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
             </div>
-            <div className="flex gap-2">
-              <Select
-                value={status}
-                onChange={(e) => { setStatus(e.target.value); setPage(1); }}
-                options={[
-                  { value: 'all', label: 'All Statuses' },
-                  { value: 'pending', label: 'Pending' },
-                  { value: 'under_review', label: 'Under Review' },
-                  { value: 'approved', label: 'Approved' },
-                  { value: 'rejected', label: 'Rejected' },
-                ]}
-              />
-              <Button type="submit" variant="secondary" size="md">Search</Button>
-            </div>
+            <Button type="submit" variant="secondary" size="md">
+              Search
+            </Button>
           </form>
         </CardContent>
       </Card>
 
       {/* Table */}
       <Card>
-        <CardHeader className="py-3.5">
-          <CardTitle>All Riders</CardTitle>
+        <CardHeader className="py-3.5 flex flex-row items-center justify-between">
+          <CardTitle>
+            {status === 'all' ? 'All Registered Riders' : `Riders (${STATUS_TABS.find(t => t.id === status)?.label})`}
+          </CardTitle>
+          {data && (
+            <span className="text-xs text-woosh-muted">
+              Showing {data.riders.length} of {data.total}
+            </span>
+          )}
         </CardHeader>
         <CardContent className="p-0">
           {loading ? (
@@ -103,7 +140,10 @@ export const RidersListPage: React.FC = () => {
           ) : error ? (
             <EmptyState title="Error loading riders" description={error} />
           ) : !data?.riders.length ? (
-            <EmptyState title="No riders found" description="Try adjusting your filters." />
+            <EmptyState 
+              title="No riders found" 
+              description={status !== 'all' ? `No riders found with '${STATUS_TABS.find(t => t.id === status)?.label}' status.` : "Try adjusting your search criteria."} 
+            />
           ) : (
             <>
               <Table>
@@ -112,7 +152,8 @@ export const RidersListPage: React.FC = () => {
                     <TableHead>Rider</TableHead>
                     <TableHead>Phone</TableHead>
                     <TableHead>Vehicle</TableHead>
-                    <TableHead>Status</TableHead>
+                    <TableHead>KYC Status</TableHead>
+                    <TableHead>Online Status</TableHead>
                     <TableHead>Joined</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
@@ -122,23 +163,28 @@ export const RidersListPage: React.FC = () => {
                     <TableRow key={rider._id}>
                       <TableCell>
                         <div className="flex items-center gap-2.5">
-                          <Avatar name={rider.user?.name} size="sm" />
+                          <Avatar name={rider.user?.name} size="sm" fallbackIcon={<Bike size={18} />} />
                           <div>
-                            <p className="font-medium text-woosh-dark">{rider.user?.name || 'Incomplete'}</p>
+                            <p className="font-semibold text-woosh-dark text-sm">{rider.user?.name || 'Incomplete Profile'}</p>
                             {rider.canAcceptChildRides && (
-                              <p className="text-xs text-emerald-600">Child Safe ✓</p>
+                              <p className="text-[11px] text-emerald-600 font-medium">Child Safe ✓</p>
                             )}
                           </div>
                         </div>
                       </TableCell>
-                      <TableCell className="text-woosh-muted">{rider.user?.phoneNumber}</TableCell>
+                      <TableCell className="text-woosh-muted text-sm">{rider.user?.phoneNumber || '—'}</TableCell>
                       <TableCell>
                         <div>
-                          <p className="text-woosh-dark text-sm">{rider.vehicleNumber}</p>
-                          <p className="text-xs text-woosh-muted">{rider.vehicleModel}</p>
+                          <p className="text-woosh-dark font-mono text-xs font-bold">{rider.vehicleNumber || '—'}</p>
+                          <p className="text-xs text-woosh-muted">{rider.vehicleModel || '—'}</p>
                         </div>
                       </TableCell>
                       <TableCell>{getStatusBadge(rider.kycStatus)}</TableCell>
+                      <TableCell>
+                        <Badge variant={rider.isOnline ? 'success' : 'neutral'} dot>
+                          {rider.isOnline ? 'Online' : 'Offline'}
+                        </Badge>
+                      </TableCell>
                       <TableCell className="text-woosh-muted text-sm">
                         {new Date(rider.user?.createdAt || rider.createdAt).toLocaleDateString()}
                       </TableCell>
@@ -147,9 +193,9 @@ export const RidersListPage: React.FC = () => {
                           variant="ghost"
                           size="sm"
                           onClick={() => navigate(`/riders/${rider._id}`)}
-                          className="text-woosh-primary hover:bg-woosh-primary-light"
+                          className="text-woosh-primary hover:bg-woosh-primary-light font-medium"
                         >
-                          <Eye size={14} /> Review
+                          <Eye size={14} className="mr-1" /> Review Profile
                         </Button>
                       </TableCell>
                     </TableRow>
