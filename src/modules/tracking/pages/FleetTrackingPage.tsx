@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import {
   Navigation,
   Car,
-  MapPin,
   Radio,
   Search,
   RefreshCw,
@@ -13,7 +12,11 @@ import {
   CheckCircle2,
   Eye,
   ChevronRight,
-  Activity
+  Activity,
+  AlertTriangle,
+  Calendar,
+  Bike,
+  Bell
 } from 'lucide-react';
 import { io, Socket } from 'socket.io-client';
 import { apiClient } from '../../../common/utils/apiClient';
@@ -28,6 +31,8 @@ interface FleetRider {
   city: string;
   vehicleNumber: string;
   vehicleModel?: string;
+  vehicleColor?: string;
+  vehicleType?: string;
   currentLocation?: {
     type: string;
     coordinates: [number, number]; // [lng, lat]
@@ -46,15 +51,15 @@ interface LiveRide {
   _id: string;
   status: string;
   passenger?: {
-    _id: string;
-    name: string;
-    phoneNumber: string;
-  };
+    _id?: string;
+    name?: string;
+    phoneNumber?: string;
+  } | null;
   rider?: {
-    _id: string;
-    name: string;
-    phoneNumber: string;
-  };
+    _id?: string;
+    name?: string;
+    phoneNumber?: string;
+  } | null;
   vehicleNumber?: string;
   vehicleModel?: string;
   riderCurrentLocation?: {
@@ -62,10 +67,14 @@ interface LiveRide {
     coordinates: [number, number];
   };
   pickup?: {
-    address: string;
+    latitude?: number;
+    longitude?: number;
+    address?: string;
   };
   drop?: {
-    address: string;
+    latitude?: number;
+    longitude?: number;
+    address?: string;
   };
   fare?: number;
   sosActive?: boolean;
@@ -75,22 +84,26 @@ interface LiveRide {
 export function FleetTrackingPage() {
   const navigate = useNavigate();
 
-  const [activeTab, setActiveTab] = useState<'fleet' | 'live-rides'>('fleet');
+  const [activeTab, setActiveTab] = useState<'fleet' | 'live-rides'>('live-rides');
   const [fleet, setFleet] = useState<FleetRider[]>([]);
   const [liveRides, setLiveRides] = useState<LiveRide[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Filters
+  // Filters for Fleet
   const [selectedCity, setSelectedCity] = useState('ALL');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'ON_TRIP' | 'AVAILABLE'>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [cities, setCities] = useState<string[]>([]);
 
+  // Filters for Live Rides
+  const [ridesFilter, setRidesFilter] = useState<'ALL' | 'IN_TRANSIT' | 'SOS_RESOLVED' | 'SOS_ACTIVE'>('ALL');
+  const [ridesSearch, setRidesSearch] = useState('');
+  const [resolvedSosRideIds, setResolvedSosRideIds] = useState<Set<string>>(new Set());
+
   // Socket state
   const socketRef = useRef<Socket | null>(null);
   const [isSocketConnected, setIsSocketConnected] = useState(false);
   const [autoRefresh, setAutoRefresh] = useState(true);
-  const [activeSOSTotal, setActiveSOSTotal] = useState<number>(0);
 
   // Load Fleet & Live Rides Data
   const loadTrackingData = async (isInitial = false) => {
@@ -101,30 +114,39 @@ export function FleetTrackingPage() {
         apiClient('/admin/tracking/fleet').catch(() => apiClient('/tracking/fleet'))
       );
       const fleetData = fleetRes?.data || fleetRes;
-      if (fleetData?.riders) {
-        setFleet(fleetData.riders);
+      const ridersList: FleetRider[] = Array.isArray(fleetData?.fleet)
+        ? fleetData.fleet
+        : Array.isArray(fleetData?.riders)
+        ? fleetData.riders
+        : [];
+      setFleet(ridersList);
 
-        // Extract unique cities
-        const uniqueCities: string[] = Array.from(
-          new Set(fleetData.riders.map((r: FleetRider) => r.city).filter(Boolean))
-        );
-        if (uniqueCities.length > 0) setCities(uniqueCities);
-      }
+      // Extract unique cities
+      const uniqueCities: string[] = Array.from(
+        new Set(ridersList.map((r: FleetRider) => r.city).filter(Boolean))
+      );
+      if (uniqueCities.length > 0) setCities(uniqueCities);
 
       // 2. Fetch Live Active Rides
       const ridesRes = await apiClient('/tracking/admin/live-rides').catch(() =>
         apiClient('/admin/tracking/live-rides').catch(() => apiClient('/tracking/live-rides'))
       );
       const ridesData = ridesRes?.data || ridesRes;
-      if (ridesData?.rides) {
-        setLiveRides(ridesData.rides);
-      }
+      const ridesList: LiveRide[] = Array.isArray(ridesData?.rides) ? ridesData.rides : [];
+      setLiveRides(ridesList);
 
-      // 3. Check SOS count
-      const sosRes = await apiClient('/admin/dashboard').catch(() => null);
-      if (sosRes?.data?.activeSOS !== undefined) {
-        setActiveSOSTotal(sosRes.data.activeSOS);
-      }
+      // 3. Fetch SOS alerts to detect which ones were resolved
+      const sosRes = await apiClient('/admin/sos?page=1&limit=100').catch(() => null);
+      const sosData = sosRes?.data || sosRes;
+      const sosAlerts = sosData?.alerts || [];
+      const resolvedIds = new Set<string>();
+      sosAlerts.forEach((a: any) => {
+        if (a.status === 'resolved' || a.status === 'false_alarm') {
+          const rId = a.rideId?._id || a.rideId;
+          if (rId) resolvedIds.add(rId.toString());
+        }
+      });
+      setResolvedSosRideIds(resolvedIds);
     } catch (err) {
       console.error('Failed to load tracking radar data:', err);
     } finally {
@@ -136,12 +158,12 @@ export function FleetTrackingPage() {
     loadTrackingData(true);
   }, []);
 
-  // Auto-refresh interval (every 8s)
+  // Auto-refresh interval (every 10s)
   useEffect(() => {
     if (!autoRefresh) return;
     const interval = setInterval(() => {
       loadTrackingData(false);
-    }, 8000);
+    }, 10000);
     return () => clearInterval(interval);
   }, [autoRefresh]);
 
@@ -221,22 +243,71 @@ export function FleetTrackingPage() {
     return matchesCity && matchesStatus && matchesSearch;
   });
 
-  const onTripCount = fleet.filter(f => f.onTrip).length;
   const idleCount = fleet.filter(f => !f.onTrip).length;
 
+  // Segmenting Live Rides
+  const inTransitRides = liveRides.filter(r =>
+    ['accepted', 'rider_en_route', 'rider_arrived', 'started', 'in_progress'].includes(r.status)
+  );
+  const sosRides = liveRides.filter(r => r.status === 'sos_active' || r.sosActive);
+  const resolvedSosRides = sosRides.filter(r => resolvedSosRideIds.has(r._id));
+  const activeUnresolvedSosRides = sosRides.filter(r => !resolvedSosRideIds.has(r._id));
+
+  // Filtered Live Rides
+  const filteredLiveRides = liveRides.filter(r => {
+    const isSos = r.status === 'sos_active' || r.sosActive;
+    const isResolved = isSos && resolvedSosRideIds.has(r._id);
+    const isActiveSos = isSos && !isResolved;
+
+    const matchesCategory =
+      ridesFilter === 'ALL' ||
+      (ridesFilter === 'IN_TRANSIT' && !isSos) ||
+      (ridesFilter === 'SOS_RESOLVED' && isResolved) ||
+      (ridesFilter === 'SOS_ACTIVE' && isActiveSos);
+
+    const q = ridesSearch.toLowerCase().trim();
+    const matchesSearch =
+      !q ||
+      r._id.toLowerCase().includes(q) ||
+      r.passenger?.name?.toLowerCase().includes(q) ||
+      r.passenger?.phoneNumber?.includes(q) ||
+      r.rider?.name?.toLowerCase().includes(q) ||
+      r.rider?.phoneNumber?.includes(q) ||
+      r.vehicleNumber?.toLowerCase().includes(q) ||
+      r.pickup?.address?.toLowerCase().includes(q) ||
+      r.drop?.address?.toLowerCase().includes(q);
+
+    return matchesCategory && matchesSearch;
+  });
+
+  const formatDate = (isoString?: string) => {
+    if (!isoString) return '—';
+    try {
+      const d = new Date(isoString);
+      return d.toLocaleDateString('en-IN', {
+        day: '2-digit',
+        month: 'short',
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+    } catch {
+      return isoString;
+    }
+  };
+
   return (
-    <div className="space-y-6 pb-12">
-      {/* Top Banner & KPIs - Woosh Theme */}
+    <div className="space-y-6 pb-12 max-w-[1440px] mx-auto">
+      {/* Top Banner & Radar Status */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-white border border-woosh-border p-5 rounded-2xl shadow-sm">
         <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-woosh-primary-light flex items-center justify-center text-woosh-primary shadow-sm">
+          <div className="w-12 h-12 rounded-2xl bg-woosh-primary-light flex items-center justify-center text-woosh-primary shadow-sm flex-shrink-0">
             <Radio className="w-6 h-6 animate-pulse" />
           </div>
           <div>
-            <div className="flex items-center gap-3">
-              <h1 className="text-xl font-bold text-woosh-dark">Live Fleet GPS Radar</h1>
+            <div className="flex items-center gap-2.5">
+              <h1 className="text-xl sm:text-2xl font-black text-woosh-dark tracking-tight">Live Fleet & Trip Radar</h1>
               <div
-                className={`flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold border ${
+                className={`flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold border ${
                   isSocketConnected
                     ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                     : 'bg-amber-50 text-amber-700 border-amber-200'
@@ -247,11 +318,11 @@ export function FleetTrackingPage() {
                     isSocketConnected ? 'bg-emerald-500 animate-ping' : 'bg-amber-500'
                   }`}
                 />
-                {isSocketConnected ? 'Live Socket Connected' : 'Polling Active'}
+                {isSocketConnected ? 'Live Socket Connected' : 'Auto Polling (10s)'}
               </div>
             </div>
-            <p className="text-sm text-woosh-muted mt-0.5">
-              Real-time monitoring of all active rider partners, live trips in transit, and emergency safety triggers.
+            <p className="text-xs sm:text-sm text-woosh-muted mt-0.5">
+              Real-time telemetry of on-duty rider partners, active transit routes, and safety incident locks.
             </p>
           </div>
         </div>
@@ -260,19 +331,20 @@ export function FleetTrackingPage() {
         <div className="flex flex-wrap items-center gap-2.5">
           <button
             onClick={() => setAutoRefresh(!autoRefresh)}
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition ${
               autoRefresh
                 ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                 : 'bg-gray-100 text-gray-600 border-gray-200'
             }`}
           >
             <Activity className="w-3.5 h-3.5" />
-            Auto-Sync: {autoRefresh ? 'ON (8s)' : 'PAUSED'}
+            Auto-Sync: {autoRefresh ? 'Active' : 'Paused'}
           </button>
 
           <Button
             size="sm"
             onClick={() => loadTrackingData(true)}
+            disabled={loading}
             className="text-xs"
           >
             <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${loading ? 'animate-spin' : ''}`} />
@@ -281,91 +353,121 @@ export function FleetTrackingPage() {
         </div>
       </div>
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <div className="bg-white border border-woosh-border rounded-2xl p-4 shadow-sm">
+      {/* 4 KPI Summary Cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Online Fleet */}
+        <div
+          onClick={() => setActiveTab('fleet')}
+          className="bg-white border border-woosh-border hover:border-woosh-primary/50 rounded-2xl p-4 shadow-sm cursor-pointer transition"
+        >
           <div className="flex items-center justify-between text-woosh-muted text-xs font-bold uppercase tracking-wider">
             <span>Online Riders</span>
-            <Car className="w-4 h-4 text-woosh-primary" />
+            <Bike className="w-4 h-4 text-emerald-600" />
           </div>
-          <div className="text-2xl font-bold text-woosh-dark mt-2">{fleet.length}</div>
-          <div className="text-[11px] text-gray-400 mt-1">Ready to accept rides</div>
+          <div className="text-2xl font-black text-woosh-dark mt-2">{fleet.length}</div>
+          <div className="text-[11px] text-woosh-muted mt-1">Currently on duty</div>
         </div>
 
-        <div className="bg-white border border-woosh-border rounded-2xl p-4 shadow-sm">
+        {/* Active In-Transit */}
+        <div
+          onClick={() => { setActiveTab('live-rides'); setRidesFilter('IN_TRANSIT'); }}
+          className="bg-white border border-woosh-border hover:border-blue-400 rounded-2xl p-4 shadow-sm cursor-pointer transition"
+        >
           <div className="flex items-center justify-between text-woosh-muted text-xs font-bold uppercase tracking-wider">
-            <span>In Transit (On Trip)</span>
+            <span>In Transit Now</span>
             <Navigation className="w-4 h-4 text-blue-500" />
           </div>
-          <div className="text-2xl font-bold text-blue-600 mt-2">{onTripCount}</div>
-          <div className="text-[11px] text-gray-400 mt-1">Carrying passengers</div>
+          <div className="text-2xl font-black text-blue-600 mt-2">{inTransitRides.length}</div>
+          <div className="text-[11px] text-woosh-muted mt-1">Passengers on the move</div>
         </div>
 
-        <div className="bg-white border border-woosh-border rounded-2xl p-4 shadow-sm">
+        {/* Available Riders */}
+        <div
+          onClick={() => { setActiveTab('fleet'); setStatusFilter('AVAILABLE'); }}
+          className="bg-white border border-woosh-border hover:border-emerald-400 rounded-2xl p-4 shadow-sm cursor-pointer transition"
+        >
           <div className="flex items-center justify-between text-woosh-muted text-xs font-bold uppercase tracking-wider">
             <span>Available / Idle</span>
             <CheckCircle2 className="w-4 h-4 text-emerald-500" />
           </div>
-          <div className="text-2xl font-bold text-emerald-600 mt-2">{idleCount}</div>
-          <div className="text-[11px] text-gray-400 mt-1">Awaiting dispatch</div>
+          <div className="text-2xl font-black text-emerald-600 mt-2">{idleCount}</div>
+          <div className="text-[11px] text-woosh-muted mt-1">Ready for ride match</div>
         </div>
 
+        {/* SOS Safety Status */}
         <div
-          onClick={() => navigate('/sos')}
-          className={`border rounded-2xl p-4 shadow-sm cursor-pointer transition-all ${
-            activeSOSTotal > 0
-              ? 'bg-rose-50 border-rose-300 hover:border-rose-400'
-              : 'bg-white border-woosh-border'
+          onClick={() => {
+            setActiveTab('live-rides');
+            setRidesFilter(activeUnresolvedSosRides.length > 0 ? 'SOS_ACTIVE' : 'SOS_RESOLVED');
+          }}
+          className={`border rounded-2xl p-4 shadow-sm cursor-pointer transition ${
+            activeUnresolvedSosRides.length > 0
+              ? 'bg-rose-50/70 border-rose-300 hover:border-rose-400'
+              : resolvedSosRides.length > 0
+              ? 'bg-emerald-50/60 border-emerald-200 hover:border-emerald-300'
+              : 'bg-white border-woosh-border hover:border-woosh-primary/50'
           }`}
         >
           <div className="flex items-center justify-between text-woosh-muted text-xs font-bold uppercase tracking-wider">
-            <span className={activeSOSTotal > 0 ? 'text-rose-700' : ''}>Active SOS Alerts</span>
-            <ShieldAlert
-              className={`w-4 h-4 ${activeSOSTotal > 0 ? 'text-rose-600 animate-bounce' : 'text-gray-400'}`}
-            />
+            <span className={activeUnresolvedSosRides.length > 0 ? 'text-rose-700' : resolvedSosRides.length > 0 ? 'text-emerald-700' : ''}>
+              {activeUnresolvedSosRides.length > 0 ? 'Active SOS Alerts' : 'SOS Safety Status'}
+            </span>
+            {activeUnresolvedSosRides.length > 0 ? (
+              <ShieldAlert className="w-4 h-4 text-rose-600 animate-pulse" />
+            ) : resolvedSosRides.length > 0 ? (
+              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+            ) : (
+              <ShieldAlert className="w-4 h-4 text-gray-400" />
+            )}
           </div>
-          <div className={`text-2xl font-bold mt-2 ${activeSOSTotal > 0 ? 'text-rose-600' : 'text-woosh-dark'}`}>
-            {activeSOSTotal}
+          <div className={`text-2xl font-black mt-2 ${
+            activeUnresolvedSosRides.length > 0 ? 'text-rose-600' : resolvedSosRides.length > 0 ? 'text-emerald-700' : 'text-woosh-dark'
+          }`}>
+            {activeUnresolvedSosRides.length > 0 ? `${activeUnresolvedSosRides.length} Active` : `${resolvedSosRides.length} Resolved`}
           </div>
-          <div className="text-[11px] text-gray-400 mt-1 flex items-center gap-1">
-            {activeSOSTotal > 0 ? 'Click to open SOS room' : 'All trips normal'}
+          <div className="text-[11px] text-woosh-muted mt-1">
+            {activeUnresolvedSosRides.length > 0
+              ? 'Immediate dispatch required'
+              : resolvedSosRides.length > 0
+              ? 'All emergency alerts resolved'
+              : 'Zero active alerts'}
           </div>
         </div>
       </div>
 
-      {/* Tabs & Filters */}
+      {/* Main Content Area */}
       <div className="bg-white border border-woosh-border rounded-2xl p-5 shadow-sm space-y-4">
+        {/* Navigation Tabs */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-woosh-border pb-4">
-          {/* Main Tabs */}
-          <div className="flex bg-gray-100 p-1 rounded-xl border border-gray-200">
-            <button
-              onClick={() => setActiveTab('fleet')}
-              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                activeTab === 'fleet'
-                  ? 'bg-woosh-primary text-white shadow-sm'
-                  : 'text-woosh-muted hover:text-woosh-dark'
-              }`}
-            >
-              <Car className="w-3.5 h-3.5" />
-              Online Fleet ({fleet.length})
-            </button>
+          <div className="flex bg-woosh-surface p-1 rounded-xl border border-woosh-border">
             <button
               onClick={() => setActiveTab('live-rides')}
-              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition ${
                 activeTab === 'live-rides'
-                  ? 'bg-woosh-primary text-white shadow-sm'
+                  ? 'bg-white text-woosh-dark shadow-xs'
                   : 'text-woosh-muted hover:text-woosh-dark'
               }`}
             >
-              <Navigation className="w-3.5 h-3.5" />
+              <Navigation className="w-3.5 h-3.5 text-blue-500" />
               Live Trips In Transit ({liveRides.length})
+            </button>
+
+            <button
+              onClick={() => setActiveTab('fleet')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition ${
+                activeTab === 'fleet'
+                  ? 'bg-white text-woosh-dark shadow-xs'
+                  : 'text-woosh-muted hover:text-woosh-dark'
+              }`}
+            >
+              <Car className="w-3.5 h-3.5 text-woosh-primary" />
+              Online Fleet ({fleet.length})
             </button>
           </div>
 
-          {/* Sub Filters for Fleet */}
+          {/* Sub Controls for Fleet */}
           {activeTab === 'fleet' && (
             <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto">
-              {/* Search */}
               <div className="relative flex-1 sm:w-60">
                 <Search className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
                 <input
@@ -377,30 +479,85 @@ export function FleetTrackingPage() {
                 />
               </div>
 
-              {/* Status Filter */}
               <select
                 value={statusFilter}
                 onChange={(e: any) => setStatusFilter(e.target.value)}
-                className="px-3 py-1.5 bg-white border border-woosh-border rounded-xl text-xs text-woosh-dark focus:outline-none focus:border-woosh-primary"
+                className="px-3 py-1.5 bg-white border border-woosh-border rounded-xl text-xs text-woosh-dark focus:outline-none focus:border-woosh-primary font-medium"
               >
                 <option value="ALL">All Status</option>
                 <option value="ON_TRIP">In Transit (On Trip)</option>
                 <option value="AVAILABLE">Available / Idle</option>
               </select>
 
-              {/* City Filter */}
-              <select
-                value={selectedCity}
-                onChange={e => setSelectedCity(e.target.value)}
-                className="px-3 py-1.5 bg-white border border-woosh-border rounded-xl text-xs text-woosh-dark focus:outline-none focus:border-woosh-primary"
-              >
-                <option value="ALL">All Cities</option>
-                {cities.map(c => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
-                ))}
-              </select>
+              {cities.length > 0 && (
+                <select
+                  value={selectedCity}
+                  onChange={e => setSelectedCity(e.target.value)}
+                  className="px-3 py-1.5 bg-white border border-woosh-border rounded-xl text-xs text-woosh-dark focus:outline-none focus:border-woosh-primary font-medium"
+                >
+                  <option value="ALL">All Cities</option>
+                  {cities.map(c => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+              )}
+            </div>
+          )}
+
+          {/* Sub Controls for Live Rides */}
+          {activeTab === 'live-rides' && (
+            <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto">
+              {/* Category Filter Pills */}
+              <div className="flex bg-gray-100 p-0.5 rounded-lg border border-gray-200 text-xs font-semibold">
+                <button
+                  onClick={() => setRidesFilter('ALL')}
+                  className={`px-2.5 py-1 rounded-md transition ${
+                    ridesFilter === 'ALL' ? 'bg-white text-woosh-dark shadow-xs' : 'text-woosh-muted'
+                  }`}
+                >
+                  All ({liveRides.length})
+                </button>
+                <button
+                  onClick={() => setRidesFilter('IN_TRANSIT')}
+                  className={`px-2.5 py-1 rounded-md transition ${
+                    ridesFilter === 'IN_TRANSIT' ? 'bg-white text-blue-700 shadow-xs' : 'text-woosh-muted'
+                  }`}
+                >
+                  In Transit ({inTransitRides.length})
+                </button>
+                <button
+                  onClick={() => setRidesFilter('SOS_RESOLVED')}
+                  className={`px-2.5 py-1 rounded-md transition flex items-center gap-1 ${
+                    ridesFilter === 'SOS_RESOLVED' ? 'bg-white text-emerald-700 shadow-xs' : 'text-woosh-muted'
+                  }`}
+                >
+                  <CheckCircle2 size={12} className="text-emerald-600" />
+                  SOS Resolved ({resolvedSosRides.length})
+                </button>
+                {activeUnresolvedSosRides.length > 0 && (
+                  <button
+                    onClick={() => setRidesFilter('SOS_ACTIVE')}
+                    className={`px-2.5 py-1 rounded-md transition flex items-center gap-1 ${
+                      ridesFilter === 'SOS_ACTIVE' ? 'bg-white text-rose-700 shadow-xs' : 'text-woosh-muted'
+                    }`}
+                  >
+                    <ShieldAlert size={12} className="text-rose-600 animate-pulse" />
+                    SOS Active ({activeUnresolvedSosRides.length})
+                  </button>
+                )}
+              </div>
+
+              {/* Search */}
+              <div className="relative flex-1 sm:w-56">
+                <Search className="absolute left-3 top-2.5 w-3.5 h-3.5 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Filter by ID, rider, passenger..."
+                  value={ridesSearch}
+                  onChange={e => setRidesSearch(e.target.value)}
+                  className="w-full pl-8 pr-3 py-1.5 bg-white border border-woosh-border rounded-xl text-woosh-dark text-xs focus:outline-none focus:border-woosh-primary"
+                />
+              </div>
             </div>
           )}
         </div>
@@ -415,8 +572,27 @@ export function FleetTrackingPage() {
               </div>
             ) : filteredFleet.length === 0 ? (
               <div className="py-16 text-center text-woosh-muted">
-                <Car className="w-10 h-10 mx-auto mb-3 opacity-30" />
-                No online riders found matching your filters.
+                <div className="w-12 h-12 rounded-2xl bg-gray-100 flex items-center justify-center text-gray-400 mx-auto mb-3">
+                  <Car className="w-6 h-6 opacity-40" />
+                </div>
+                <p className="font-bold text-woosh-dark text-sm">No Online Riders Found</p>
+                <p className="text-xs text-woosh-muted mt-1 max-w-sm mx-auto">
+                  Rider partners in Bhopal are currently offline or do not match your active filter criteria.
+                </p>
+                <div className="flex items-center justify-center gap-2.5 mt-4">
+                  <button
+                    onClick={() => navigate('/broadcasts')}
+                    className="text-xs bg-woosh-primary text-white font-bold px-3.5 py-2 rounded-xl hover:bg-woosh-primary-dark transition shadow-xs flex items-center gap-1.5"
+                  >
+                    <Bell size={12} /> Send Online Alert
+                  </button>
+                  <button
+                    onClick={() => navigate('/riders')}
+                    className="text-xs bg-woosh-surface hover:bg-gray-100 text-woosh-dark font-bold px-3.5 py-2 rounded-xl border border-woosh-border transition"
+                  >
+                    Manage Riders
+                  </button>
+                </div>
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
@@ -448,53 +624,49 @@ export function FleetTrackingPage() {
                           </div>
                         </div>
 
-                        {/* Status Badge */}
                         <span
-                          className={`text-[10px] font-bold px-2.5 py-1 rounded-full uppercase flex items-center gap-1 ${
+                          className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${
                             rider.onTrip
-                              ? 'bg-blue-50 text-blue-700 border border-blue-200'
-                              : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                              ? 'bg-blue-50 text-blue-700 border-blue-200'
+                              : 'bg-emerald-50 text-emerald-700 border-emerald-200'
                           }`}
                         >
-                          <span
-                            className={`w-1.5 h-1.5 rounded-full ${
-                              rider.onTrip ? 'bg-blue-500' : 'bg-emerald-500'
-                            }`}
-                          />
-                          {rider.onTrip ? 'In Transit' : 'Available'}
+                          {rider.onTrip ? 'On Trip' : 'Available'}
                         </span>
                       </div>
 
-                      {/* Vehicle & City Details */}
-                      <div className="grid grid-cols-2 gap-2 text-xs bg-gray-50/80 p-2.5 rounded-xl border border-gray-100">
-                        <div>
-                          <span className="text-[10px] text-woosh-muted uppercase font-bold">Vehicle</span>
-                          <div className="font-bold text-woosh-dark text-xs mt-0.5 truncate">
-                            {rider.vehicleNumber || 'Unassigned'}
-                          </div>
-                          <div className="text-[10px] text-gray-500 truncate">
-                            {rider.vehicleModel || 'Standard'}
-                          </div>
+                      {/* Vehicle Details */}
+                      <div className="bg-woosh-surface p-2.5 rounded-xl text-xs space-y-1">
+                        <div className="flex justify-between items-center text-woosh-dark font-mono font-bold">
+                          <span>{rider.vehicleNumber}</span>
+                          <span className="text-[10px] font-sans font-semibold text-woosh-muted uppercase">
+                            {rider.vehicleType || 'Scooter'}
+                          </span>
                         </div>
-                        <div>
-                          <span className="text-[10px] text-woosh-muted uppercase font-bold">City / Zone</span>
-                          <div className="font-bold text-woosh-dark text-xs mt-0.5 flex items-center gap-1 truncate">
-                            <MapPin className="w-3 h-3 text-woosh-primary flex-shrink-0" />
-                            {rider.city || 'Default'}
+                        {rider.vehicleModel && (
+                          <div className="text-[11px] text-woosh-muted">
+                            {rider.vehicleColor ? `${rider.vehicleColor} · ` : ''}{rider.vehicleModel}
                           </div>
-                        </div>
+                        )}
                       </div>
 
-                      {/* Active Trip Info if On Trip */}
+                      {/* Trip Info if in transit */}
                       {rider.onTrip && rider.currentTrip && (
-                        <div className="bg-blue-50/80 border border-blue-200 rounded-xl p-2.5 text-xs space-y-1">
-                          <div className="flex items-center justify-between text-[10px] font-bold text-blue-800">
-                            <span>ONGOING RIDE</span>
-                            <span className="uppercase">{rider.currentTrip.status}</span>
+                        <div className="bg-blue-50/70 border border-blue-100 rounded-xl p-2.5 text-xs space-y-1 text-blue-900">
+                          <div className="flex justify-between items-center font-bold text-[11px]">
+                            <span>Active Trip In Transit</span>
+                            <span className="font-mono">#{rider.currentTrip.rideId.slice(-6).toUpperCase()}</span>
                           </div>
-                          <div className="text-gray-700 text-[11px] truncate">
-                            📍 {rider.currentTrip.drop || rider.currentTrip.pickup || 'Trip in progress'}
-                          </div>
+                          {rider.currentTrip.pickup && (
+                            <p className="text-[11px] truncate text-blue-800">
+                              <span className="font-semibold">From:</span> {rider.currentTrip.pickup}
+                            </p>
+                          )}
+                          {rider.currentTrip.drop && (
+                            <p className="text-[11px] truncate text-blue-800">
+                              <span className="font-semibold">To:</span> {rider.currentTrip.drop}
+                            </p>
+                          )}
                         </div>
                       )}
 
@@ -544,79 +716,193 @@ export function FleetTrackingPage() {
 
         {/* TAB 2: LIVE ACTIVE RIDES TABLE */}
         {activeTab === 'live-rides' && (
-          <div className="overflow-x-auto rounded-xl border border-woosh-border">
-            <table className="w-full text-left text-xs text-woosh-dark">
-              <thead className="bg-gray-50/80 text-[11px] uppercase font-bold text-woosh-muted border-b border-woosh-border">
-                <tr>
-                  <th className="py-3 px-4">Ride ID</th>
-                  <th className="py-3 px-4">Passenger</th>
-                  <th className="py-3 px-4">Driver / Vehicle</th>
-                  <th className="py-3 px-4">Route</th>
-                  <th className="py-3 px-4">Status</th>
-                  <th className="py-3 px-4">Fare</th>
-                  <th className="py-3 px-4 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {liveRides.length === 0 ? (
+          <div className="space-y-4">
+            {/* Context Notice for SOS Flagged Rides */}
+            {sosRides.length > 0 && (
+              activeUnresolvedSosRides.length > 0 ? (
+                <div className="bg-rose-50 border border-rose-200 rounded-xl p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-rose-950 text-xs">
+                  <div className="flex items-start gap-2.5">
+                    <AlertTriangle className="w-4 h-4 text-rose-600 flex-shrink-0 mt-0.5 animate-bounce" />
+                    <div>
+                      <span className="font-bold text-rose-700">
+                        {activeUnresolvedSosRides.length} Active Emergency Alert(s) Pending Resolution!
+                      </span>{' '}
+                      Immediate response needed at the SOS emergency desk.
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => navigate('/sos')}
+                    className="bg-rose-600 hover:bg-rose-700 text-white font-bold px-3 py-1.5 rounded-lg whitespace-nowrap self-start sm:self-auto transition shadow-xs"
+                  >
+                    Open SOS Desk →
+                  </button>
+                </div>
+              ) : (
+                <div className="bg-emerald-50/90 border border-emerald-200 rounded-xl p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-emerald-950 text-xs">
+                  <div className="flex items-start gap-2.5">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <span className="font-bold text-emerald-800">
+                        All {resolvedSosRides.length} SOS Incident(s) are Marked Resolved at SOS Desk:
+                      </span>{' '}
+                      These trips retain safety audit status <code className="bg-emerald-100 text-emerald-900 px-1 py-0.5 rounded font-mono font-bold">sos_active</code> in the ride database until administratively closed. There is no active danger.
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => navigate('/sos')}
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-3 py-1.5 rounded-lg whitespace-nowrap self-start sm:self-auto transition shadow-xs"
+                  >
+                    View SOS History →
+                  </button>
+                </div>
+              )
+            )}
+
+            <div className="overflow-x-auto rounded-xl border border-woosh-border">
+              <table className="w-full text-left text-xs text-woosh-dark">
+                <thead className="bg-woosh-surface text-[11px] uppercase font-bold text-woosh-muted border-b border-woosh-border">
                   <tr>
-                    <td colSpan={7} className="py-12 text-center text-woosh-muted">
-                      No active rides currently in transit.
-                    </td>
+                    <th className="py-3 px-4">Ride ID & Date</th>
+                    <th className="py-3 px-4">Passenger</th>
+                    <th className="py-3 px-4">Driver / Vehicle</th>
+                    <th className="py-3 px-4">Pickup & Drop Route</th>
+                    <th className="py-3 px-4">Trip Status</th>
+                    <th className="py-3 px-4 text-right">Fare</th>
+                    <th className="py-3 px-4 text-right">Actions</th>
                   </tr>
-                ) : (
-                  liveRides.map(ride => (
-                    <tr key={ride._id} className="hover:bg-slate-50 transition-colors">
-                      <td className="py-3 px-4 font-mono font-bold">
-                        #{ride._id.slice(-6).toUpperCase()}
-                      </td>
-                      <td className="py-3 px-4">
-                        <div className="font-bold text-woosh-dark">{ride.passenger?.name || 'Passenger'}</div>
-                        <div className="text-[11px] text-woosh-muted">{ride.passenger?.phoneNumber}</div>
-                      </td>
-                      <td className="py-3 px-4">
-                        <div className="font-bold text-woosh-dark">{ride.rider?.name || 'Assigned Driver'}</div>
-                        <div className="text-[11px] text-woosh-muted">
-                          {ride.vehicleNumber || ''} • {ride.rider?.phoneNumber || ''}
-                        </div>
-                      </td>
-                      <td className="py-3 px-4 max-w-[240px]">
-                        <div className="truncate text-gray-700">
-                          <span className="text-emerald-600 font-bold">From:</span> {ride.pickup?.address || 'Pickup Point'}
-                        </div>
-                        <div className="truncate text-gray-700">
-                          <span className="text-rose-600 font-bold">To:</span> {ride.drop?.address || 'Drop Point'}
-                        </div>
-                      </td>
-                      <td className="py-3 px-4 whitespace-nowrap">
-                        <Badge
-                          variant={
-                            ride.status === 'in_progress' || ride.status === 'started'
-                              ? 'success'
-                              : 'warning'
-                          }
-                          dot
-                        >
-                          {ride.status}
-                        </Badge>
-                      </td>
-                      <td className="py-3 px-4 font-bold text-emerald-600">
-                        ₹{ride.fare || 0}
-                      </td>
-                      <td className="py-3 px-4 text-right">
-                        <button
-                          onClick={() => navigate(`/rides/${ride._id}`)}
-                          className="px-2.5 py-1.5 rounded-lg bg-gray-100 hover:bg-woosh-primary hover:text-white text-woosh-dark text-xs font-semibold inline-flex items-center gap-1 transition-colors"
-                        >
-                          <span>Track Trip</span>
-                          <ChevronRight className="w-3.5 h-3.5" />
-                        </button>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {filteredLiveRides.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="py-12 text-center text-woosh-muted">
+                        No live trips found matching your current filter.
                       </td>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+                  ) : (
+                    filteredLiveRides.map(ride => {
+                      const isSos = ride.status === 'sos_active' || ride.sosActive;
+                      return (
+                        <tr
+                          key={ride._id}
+                          className={`hover:bg-slate-50 transition-colors ${
+                            isSos ? 'bg-red-50/20' : ''
+                          }`}
+                        >
+                          {/* Ride ID & Date */}
+                          <td className="py-3 px-4">
+                            <span className="font-mono font-bold text-woosh-primary bg-woosh-primary-light px-2 py-0.5 rounded">
+                              #{ride._id.slice(-6).toUpperCase()}
+                            </span>
+                            <div className="flex items-center gap-1 text-[11px] text-woosh-muted mt-1.5 font-medium">
+                              <Calendar size={11} />
+                              <span>{formatDate(ride.createdAt)}</span>
+                            </div>
+                          </td>
+
+                          {/* Passenger */}
+                          <td className="py-3 px-4">
+                            {ride.passenger ? (
+                              <>
+                                <div className="font-bold text-woosh-dark">{ride.passenger.name || 'Passenger'}</div>
+                                <div className="text-[11px] text-woosh-muted">{ride.passenger.phoneNumber}</div>
+                              </>
+                            ) : (
+                              <span className="text-xs text-woosh-muted italic">Direct / Unregistered</span>
+                            )}
+                          </td>
+
+                          {/* Driver / Vehicle */}
+                          <td className="py-3 px-4">
+                            {ride.rider ? (
+                              <>
+                                <div className="font-bold text-woosh-dark">{ride.rider.name}</div>
+                                <div className="text-[11px] text-woosh-muted font-mono">
+                                  {ride.vehicleNumber || '—'} {ride.vehicleModel ? `· ${ride.vehicleModel}` : ''}
+                                </div>
+                              </>
+                            ) : (
+                              <span className="text-xs text-woosh-muted italic">Unassigned Rider</span>
+                            )}
+                          </td>
+
+                          {/* Route */}
+                          <td className="py-3 px-4 max-w-[260px]">
+                            <div className="truncate text-woosh-dark flex items-start gap-1.5">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-1 flex-shrink-0" />
+                              <span className="truncate">{ride.pickup?.address || 'Pickup Point'}</span>
+                            </div>
+                            <div className="truncate text-woosh-muted flex items-start gap-1.5 mt-0.5">
+                              <span className="w-1.5 h-1.5 rounded-sm bg-rose-500 mt-1 flex-shrink-0" />
+                              <span className="truncate">{ride.drop?.address || 'Drop Point'}</span>
+                            </div>
+                          </td>
+
+                          {/* Status */}
+                          <td className="py-3 px-4 whitespace-nowrap">
+                            {isSos ? (
+                              resolvedSosRideIds.has(ride._id) ? (
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                  <CheckCircle2 size={12} className="text-emerald-600" />
+                                  ✓ SOS Resolved
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-black bg-rose-50 text-rose-700 border border-rose-200 animate-pulse">
+                                  <ShieldAlert size={12} className="text-rose-600" />
+                                  SOS ACTIVE
+                                </span>
+                              )
+                            ) : (
+                              <Badge
+                                variant={
+                                  ride.status === 'in_progress' || ride.status === 'started'
+                                    ? 'success'
+                                    : 'info'
+                                }
+                                dot
+                              >
+                                {ride.status.replace(/_/g, ' ')}
+                              </Badge>
+                            )}
+                          </td>
+
+                          {/* Fare */}
+                          <td className="py-3 px-4 font-bold text-right text-woosh-dark">
+                            ₹{ride.fare || 0}
+                          </td>
+
+                          {/* Actions */}
+                          <td className="py-3 px-4 text-right">
+                            <div className="flex items-center justify-end gap-1.5">
+                              <button
+                                onClick={() => navigate(`/rides/${ride._id}`)}
+                                className="px-2.5 py-1.5 rounded-lg bg-woosh-surface hover:bg-woosh-primary hover:text-white text-woosh-dark text-xs font-bold inline-flex items-center gap-1 transition"
+                              >
+                                <span>Track Trip</span>
+                                <ChevronRight className="w-3.5 h-3.5" />
+                              </button>
+
+                              {isSos && (
+                                <button
+                                  onClick={() => navigate('/sos')}
+                                  className={`px-2 py-1.5 rounded-lg text-xs font-bold transition ${
+                                    resolvedSosRideIds.has(ride._id)
+                                      ? 'bg-emerald-100 hover:bg-emerald-200 text-emerald-800'
+                                      : 'bg-rose-100 hover:bg-rose-200 text-rose-800 animate-pulse'
+                                  }`}
+                                  title={resolvedSosRideIds.has(ride._id) ? 'Inspect Resolved SOS Log' : 'Open Emergency SOS Desk'}
+                                >
+                                  {resolvedSosRideIds.has(ride._id) ? 'SOS History' : 'SOS Desk'}
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
       </div>

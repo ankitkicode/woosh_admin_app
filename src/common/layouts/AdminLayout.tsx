@@ -1,15 +1,22 @@
 import { useState, useEffect } from 'react';
-import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { NavLink, Outlet, useLocation, useNavigate, Link } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import {
   LayoutDashboard, Users, UserCircle, Map, Settings,
   MapPin, ShieldAlert, FileText, Shield, Banknote, TrendingUp, MessageSquare, LogOut, Search, Menu, X, CheckCircle,
-  Radio, Megaphone
+  Radio, Megaphone, ChevronLeft, PanelLeftClose, PanelLeftOpen
 } from 'lucide-react';
 import { cn } from '../utils/cn';
 import type { RootState, AppDispatch } from '../../app/store';
 import { logout } from '../../modules/auth/store/authSlice';
 import { apiClient } from '../utils/apiClient';
+
+interface SidebarContentProps {
+  collapsed: boolean;
+  isMobile?: boolean;
+  onToggleCollapse?: () => void;
+  onClose?: () => void;
+}
 
 export function AdminLayout() {
   const location = useLocation();
@@ -17,6 +24,14 @@ export function AdminLayout() {
   const dispatch = useDispatch<AppDispatch>();
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('woosh_sidebar_collapsed') === 'true';
+    } catch {
+      return false;
+    }
+  });
+
   const [currentTime, setCurrentTime] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [badges, setBadges] = useState<{
@@ -35,6 +50,30 @@ export function AdminLayout() {
 
   const { name, role } = useSelector((state: RootState) => state.auth);
   const displayRole = role === 'super_admin' ? 'Super Admin' : 'Admin';
+
+  const toggleCollapse = () => {
+    setIsCollapsed(prev => {
+      const next = !prev;
+      try {
+        localStorage.setItem('woosh_sidebar_collapsed', String(next));
+      } catch {
+        // silent fallback
+      }
+      return next;
+    });
+  };
+
+  // Keyboard shortcut Ctrl+B or Cmd+B to toggle collapse
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'b') {
+        e.preventDefault();
+        toggleCollapse();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   // Live clock
   useEffect(() => {
@@ -131,69 +170,158 @@ export function AdminLayout() {
   const matchedNav = allNavItems.find(n => location.pathname === n.href || (n.href !== '/dashboard' && location.pathname.startsWith(n.href)));
   const currentPage = matchedNav?.name || 'Admin Panel';
 
-  const SidebarContent = () => (
-    <div className="flex flex-col h-full bg-[#111827] text-gray-200">
-      {/* Logo */}
-      <div className="h-16 flex items-center justify-between px-5 border-b border-gray-800 flex-shrink-0">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-woosh-primary flex items-center justify-center font-bold text-white shadow">
-            <span className="text-lg">W</span>
+  const SidebarContent = ({ collapsed, isMobile, onToggleCollapse, onClose }: SidebarContentProps) => (
+    <div className="flex flex-col h-full bg-[#111827] text-gray-200 select-none">
+      {/* Sidebar Header & Brand Logo */}
+      <div className={cn(
+        "h-16 flex items-center border-b border-gray-800/80 flex-shrink-0 transition-all duration-300",
+        collapsed ? "justify-center px-2" : "justify-between px-4"
+      )}>
+        {collapsed ? (
+          <Link
+            to="/dashboard"
+            title="Woosh Command Center"
+            className="flex items-center justify-center p-1.5 rounded-xl hover:bg-gray-800/80 transition group"
+          >
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-pink-600 to-purple-600 flex items-center justify-center p-2 shadow-md shadow-pink-500/20 group-hover:scale-105 transition-transform">
+              <img src="/favicon.svg" alt="Woosh" className="w-full h-full object-contain" />
+            </div>
+          </Link>
+        ) : (
+          <div className="flex items-center justify-between w-full min-w-0">
+            <Link to="/dashboard" className="flex items-center gap-2.5 min-w-0 group py-1">
+              <img
+                src="/woosh_logo.png"
+                alt="Woosh"
+                className="h-7 w-auto max-w-[130px] object-contain drop-shadow transition-transform group-hover:scale-105"
+                onError={(e) => {
+                  (e.currentTarget as HTMLImageElement).src = '/favicon.svg';
+                }}
+              />
+              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-pink-500/20 text-pink-400 border border-pink-500/30 uppercase tracking-wide flex-shrink-0">
+                Admin
+              </span>
+            </Link>
+
+            {/* Desktop Collapse Arrow Button */}
+            {!isMobile && onToggleCollapse && (
+              <button
+                onClick={onToggleCollapse}
+                title="Collapse sidebar (Ctrl+B)"
+                className="hidden lg:flex p-1.5 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition items-center justify-center flex-shrink-0"
+              >
+                <ChevronLeft size={18} />
+              </button>
+            )}
+
+            {/* Mobile Close Button */}
+            {isMobile && onClose && (
+              <button
+                onClick={onClose}
+                className="lg:hidden text-gray-400 hover:text-white p-1.5 rounded-lg hover:bg-gray-800 transition"
+              >
+                <X size={20} />
+              </button>
+            )}
           </div>
-          <div className="flex flex-col">
-            <span className="text-white font-bold text-[15px] leading-tight tracking-wide">Woosh Admin</span>
-            <span className="text-woosh-primary text-[10px] uppercase font-bold tracking-widest">{displayRole}</span>
-          </div>
-        </div>
-        <button
-          onClick={() => setSidebarOpen(false)}
-          className="lg:hidden text-gray-400 hover:text-white"
-        >
-          <X size={20} />
-        </button>
+        )}
       </div>
 
-      {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-6 scrollbar-thin">
+      {/* Navigation List */}
+      <nav className={cn(
+        "flex-1 overflow-y-auto py-3 scrollbar-thin transition-all duration-300",
+        collapsed ? "px-2 space-y-4" : "px-3 space-y-5"
+      )}>
         {navigationGroups.map((group) => (
-          <div key={group.title}>
-            <h3 className="px-3 text-[11px] font-bold text-gray-400 tracking-wider mb-2 uppercase">
-              {group.title}
-            </h3>
+          <div key={group.title} className="space-y-1">
+            {collapsed ? (
+              <div className="px-1 py-1">
+                <div className="h-px bg-gray-800/80 rounded" />
+              </div>
+            ) : (
+              <h3 className="px-3 text-[10px] font-bold text-gray-400 tracking-wider mb-1.5 uppercase">
+                {group.title}
+              </h3>
+            )}
+
             <div className="space-y-1">
               {group.items.map((item) => {
                 const Icon = item.icon;
+                const hasBadge = item.badge !== undefined && item.badge > 0;
                 return (
                   <NavLink
                     key={item.name}
                     to={item.href}
-                    onClick={() => setSidebarOpen(false)}
+                    title={collapsed ? `${item.name}${hasBadge ? ` (${item.badge})` : ''}` : undefined}
+                    onClick={() => {
+                      if (isMobile && onClose) onClose();
+                    }}
                     className={({ isActive }) =>
                       cn(
-                        "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all group",
+                        "relative flex items-center rounded-xl text-sm font-medium transition-all group",
+                        collapsed ? "justify-center p-2.5" : "gap-3 px-3 py-2.5",
                         isActive
-                          ? "bg-woosh-primary text-white shadow-sm"
-                          : "text-gray-300 hover:text-white hover:bg-gray-800"
+                          ? "bg-woosh-primary text-white shadow-md shadow-pink-600/30 font-semibold"
+                          : "text-gray-300 hover:text-white hover:bg-gray-800/80"
                       )
                     }
                   >
                     {({ isActive }) => (
                       <>
-                        <Icon
-                          size={18}
-                          strokeWidth={isActive ? 2.5 : 2}
-                          className={cn(
-                            "transition-colors flex-shrink-0",
-                            isActive ? "text-white" : "text-gray-400 group-hover:text-white"
+                        <div className="relative flex items-center justify-center flex-shrink-0">
+                          <Icon
+                            size={19}
+                            strokeWidth={isActive ? 2.5 : 2}
+                            className={cn(
+                              "transition-colors",
+                              isActive ? "text-white" : "text-gray-400 group-hover:text-white"
+                            )}
+                          />
+                          {/* Badge indicator on collapsed view */}
+                          {collapsed && hasBadge && (
+                            <span
+                              className={cn(
+                                "absolute -top-1.5 -right-2 min-w-[17px] h-[17px] px-1 text-[9px] font-black rounded-full text-white flex items-center justify-center ring-2 ring-[#111827] shadow-sm animate-pulse",
+                                item.badgeColor || (isActive ? 'bg-black/60' : 'bg-pink-600')
+                              )}
+                            >
+                              {item.badge}
+                            </span>
                           )}
-                        />
-                        <span className="flex-1 truncate">{item.name}</span>
-                        {item.badge !== undefined && (
-                          <span className={cn(
-                            "text-[10px] font-bold px-2 py-0.5 rounded-full text-white min-w-[20px] text-center",
-                            item.badgeColor || (isActive ? 'bg-black/30' : 'bg-gray-700')
-                          )}>
-                            {item.badge}
-                          </span>
+                        </div>
+
+                        {/* Text and Badge on expanded view */}
+                        {!collapsed && (
+                          <>
+                            <span className="flex-1 truncate">{item.name}</span>
+                            {hasBadge && (
+                              <span
+                                className={cn(
+                                  "text-[10px] font-bold px-2 py-0.5 rounded-full text-white min-w-[20px] text-center shadow-xs",
+                                  item.badgeColor || (isActive ? 'bg-black/30' : 'bg-gray-700')
+                                )}
+                              >
+                                {item.badge}
+                              </span>
+                            )}
+                          </>
+                        )}
+
+                        {/* Floating tooltip on hover when collapsed */}
+                        {collapsed && (
+                          <div className="pointer-events-none absolute left-full ml-3 hidden group-hover:flex items-center z-50">
+                            <div className="bg-gray-900 text-white text-xs font-semibold px-2.5 py-1.5 rounded-lg shadow-xl border border-gray-700 whitespace-nowrap flex items-center gap-1.5">
+                              <span>{item.name}</span>
+                              {hasBadge && (
+                                <span className={cn(
+                                  "text-[9px] font-black px-1.5 py-0.2 rounded-full text-white",
+                                  item.badgeColor || "bg-pink-600"
+                                )}>
+                                  {item.badge}
+                                </span>
+                              )}
+                            </div>
+                          </div>
                         )}
                       </>
                     )}
@@ -206,65 +334,112 @@ export function AdminLayout() {
       </nav>
 
       {/* User Section & Logout */}
-      <div className="p-4 border-t border-gray-800 flex-shrink-0 bg-gray-900/50">
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="relative flex-shrink-0">
-              <div className="w-9 h-9 rounded-full bg-woosh-primary/20 text-woosh-primary font-bold flex items-center justify-center border border-woosh-primary/30">
+      <div className={cn(
+        "border-t border-gray-800/80 flex-shrink-0 bg-gray-900/60 transition-all duration-300",
+        collapsed ? "p-2.5 flex flex-col items-center gap-2" : "p-3.5"
+      )}>
+        {collapsed ? (
+          <>
+            <div className="relative group cursor-pointer" title={`${name || 'Admin'} (${displayRole})`}>
+              <div className="w-9 h-9 rounded-full bg-woosh-primary/20 text-woosh-primary font-bold flex items-center justify-center border border-woosh-primary/30 text-sm shadow-sm">
                 {name ? name.charAt(0).toUpperCase() : 'A'}
               </div>
-              <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 border-2 border-gray-900 rounded-full"></div>
+              <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 border-2 border-[#111827] rounded-full"></div>
             </div>
-            <div className="min-w-0">
-              <p className="text-sm font-bold text-white truncate">{name || 'Admin User'}</p>
-              <p className="text-xs text-gray-400 truncate">{displayRole}</p>
+            <button
+              onClick={handleLogout}
+              title="Log Out"
+              className="p-2 text-gray-400 hover:text-red-400 hover:bg-gray-800 rounded-lg transition"
+            >
+              <LogOut size={16} />
+            </button>
+          </>
+        ) : (
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="relative flex-shrink-0">
+                <div className="w-8 h-8 rounded-full bg-woosh-primary/20 text-woosh-primary font-bold flex items-center justify-center border border-woosh-primary/30 text-sm">
+                  {name ? name.charAt(0).toUpperCase() : 'A'}
+                </div>
+                <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 border-2 border-gray-900 rounded-full"></div>
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-bold text-white truncate">{name || 'Admin User'}</p>
+                <p className="text-[10px] text-gray-400 truncate">{displayRole}</p>
+              </div>
             </div>
+            <button
+              onClick={handleLogout}
+              title="Log Out"
+              className="p-1.5 text-gray-400 hover:text-red-400 hover:bg-gray-800 rounded-lg transition flex-shrink-0"
+            >
+              <LogOut size={16} />
+            </button>
           </div>
-          <button
-            onClick={handleLogout}
-            title="Log Out"
-            className="p-2 text-gray-400 hover:text-red-400 hover:bg-gray-800 rounded-lg transition flex-shrink-0"
-          >
-            <LogOut size={18} />
-          </button>
-        </div>
+        )}
       </div>
     </div>
   );
 
   return (
     <div className="min-h-screen bg-slate-50 flex">
-      {/* Desktop Sidebar */}
-      <aside className="w-[240px] bg-[#111827] border-r border-gray-800 flex-col hidden lg:flex fixed inset-y-0 left-0 z-30">
-        <SidebarContent />
+      {/* Desktop Sidebar (Collapsible) */}
+      <aside className={cn(
+        "bg-[#111827] border-r border-gray-800/80 flex-col hidden lg:flex fixed inset-y-0 left-0 z-30 transition-all duration-300 ease-in-out",
+        isCollapsed ? "w-[76px]" : "w-[260px]"
+      )}>
+        <SidebarContent
+          collapsed={isCollapsed}
+          onToggleCollapse={toggleCollapse}
+        />
       </aside>
 
-      {/* Mobile Sidebar Overlay */}
+      {/* Mobile Sidebar Overlay Drawer */}
       {sidebarOpen && (
         <div className="fixed inset-0 z-40 lg:hidden">
           <div
-            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
             onClick={() => setSidebarOpen(false)}
           />
-          <aside className="absolute inset-y-0 left-0 w-64 bg-[#111827] shadow-2xl flex flex-col z-50">
-            <SidebarContent />
+          <aside className="absolute inset-y-0 left-0 w-72 bg-[#111827] shadow-2xl flex flex-col z-50">
+            <SidebarContent
+              collapsed={false}
+              isMobile
+              onClose={() => setSidebarOpen(false)}
+            />
           </aside>
         </div>
       )}
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col min-w-0 lg:ml-[240px]">
+      <div className={cn(
+        "flex-1 flex flex-col min-w-0 transition-all duration-300 ease-in-out",
+        isCollapsed ? "lg:ml-[76px]" : "lg:ml-[260px]"
+      )}>
         {/* Topbar */}
         <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-4 lg:px-6 sticky top-0 z-20">
           <div className="flex items-center gap-3">
+            {/* Mobile Drawer Trigger */}
             <button
               onClick={() => setSidebarOpen(true)}
-              className="lg:hidden p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg"
+              className="lg:hidden p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition"
+              aria-label="Open sidebar"
             >
               <Menu size={20} />
             </button>
+
+            {/* Desktop Collapse / Expand Toggle Button in Topbar */}
+            <button
+              onClick={toggleCollapse}
+              title={isCollapsed ? "Expand sidebar (Ctrl+B)" : "Collapse sidebar (Ctrl+B)"}
+              className="hidden lg:flex p-2 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition items-center justify-center"
+              aria-label="Toggle sidebar"
+            >
+              {isCollapsed ? <PanelLeftOpen size={19} /> : <PanelLeftClose size={19} />}
+            </button>
+
             <div className="flex flex-col">
-              <h1 className="text-lg lg:text-xl font-bold text-gray-900 leading-tight">{currentPage}</h1>
+              <h1 className="text-base lg:text-lg font-bold text-gray-900 leading-tight">{currentPage}</h1>
               <p className="text-xs text-gray-500 font-medium">Bhopal HQ · {currentTime || 'Live Status'}</p>
             </div>
           </div>
