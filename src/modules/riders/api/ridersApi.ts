@@ -44,6 +44,13 @@ export const deleteRider = async (id: string): Promise<void> => {
   await apiClient(`/admin/riders/${id}`, { method: 'DELETE' });
 };
 
+export const toggleRiderOnlineStatus = async (id: string, isOnline?: boolean): Promise<any> => {
+  return apiClient(`/admin/riders/${id}/status`, {
+    method: 'PUT',
+    data: isOnline !== undefined ? { isOnline } : {},
+  });
+};
+
 export interface WalletTransaction {
   _id: string;
   type: string;

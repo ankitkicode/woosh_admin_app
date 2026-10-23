@@ -1,306 +1,400 @@
-import { useState, useEffect, useCallback } from 'react';
-import { MessageSquare, Phone, Clock, AlertCircle, CheckCircle2, UserCircle, Users } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { MessageSquare, Send, CheckCircle, User, Car, Search } from 'lucide-react';
 import { apiClient } from '../../../common/utils/apiClient';
 import { useToast } from '../../../common/components/Toast';
 
 export function SupportPage() {
-  const [activeTab, setActiveTab] = useState<'passengers' | 'riders'>('passengers');
   const [tickets, setTickets] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [counts, setCounts] = useState({ open: 0, inProgress: 0, resolved: 0, closed: 0 });
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
   const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null);
+  const [selectedTicket, setSelectedTicket] = useState<any>(null);
+  const [replyText, setReplyText] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSending, setIsSending] = useState(false);
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const { toast } = useToast();
 
   const fetchTickets = useCallback(async () => {
     try {
       setIsLoading(true);
-      const endpoint = activeTab === 'passengers' ? '/contact' : '/rider-support';
-      const data = await apiClient(endpoint).catch(() => ({ success: true, data: [] }));
-      
-      // Handle the nested data structure from the API (data.data) or fallback
-      let fetchedTickets = data?.data || data || [];
-      if (!Array.isArray(fetchedTickets)) fetchedTickets = [];
+      const params = new URLSearchParams();
+      if (statusFilter !== 'all') params.append('status', statusFilter.toUpperCase());
+      if (search.trim()) params.append('search', search.trim());
+      params.append('page', page.toString());
+      params.append('limit', '20');
 
-      // Fallback demo data if no tickets are available to match reference styling
-      if (fetchedTickets.length === 0) {
-        fetchedTickets = [
-          {
-            _id: '6ac67985e72a46dda836faa2',
-            name: 'Priya Sharma',
-            phone: '9399999999',
-            queryType: 'Child Mode',
-            message: 'I want to enable child mode for my daily rides but it is not working.',
-            status: 'pending',
-            createdAt: new Date().toISOString(),
-          },
-          {
-            _id: '6ac67372e72a46dda836f9c4',
-            name: 'Rahul Verma',
-            phone: '9399846862',
-            queryType: 'Safety concern',
-            message: 'The rider was driving very fast. Please look into this.',
-            status: 'pending',
-            createdAt: new Date(Date.now() - 3600000).toISOString(),
-          },
-          {
-            _id: '6abf93fe7a7848b6c24e6dce',
-            name: 'Amit Singh',
-            phone: '9388498249',
-            queryType: 'Payment Issue',
-            message: 'Amount deducted twice from my account.',
-            status: 'resolved',
-            createdAt: new Date(Date.now() - 86400000).toISOString(),
-          }
-        ];
-      }
+      const res = await apiClient(`/admin/support/tickets?${params.toString()}`);
+      const data = res?.data || res || {};
+      const fetchedTickets = data.tickets || [];
 
       setTickets(fetchedTickets);
-      if (fetchedTickets.length > 0) {
+      setTotalPages(data.totalPages || 1);
+      if (data.counts) setCounts(data.counts);
+
+      if (fetchedTickets.length > 0 && !selectedTicketId) {
         setSelectedTicketId(fetchedTickets[0]._id);
-      } else {
-        setSelectedTicketId(null);
       }
     } catch (err: any) {
-      toast('error', `Failed to load tickets`, err.message);
+      console.error(err);
+      toast('error', 'Failed to load support tickets', err.message);
     } finally {
       setIsLoading(false);
     }
-  }, [activeTab, toast]);
+  }, [statusFilter, search, page, selectedTicketId, toast]);
 
   useEffect(() => {
     fetchTickets();
   }, [fetchTickets]);
 
-  const handleStatusChange = async (newStatus: string) => {
-    if (!selectedTicketId) return;
+  // Fetch full details of selected ticket (messages thread)
+  const fetchTicketDetails = useCallback(async (id: string) => {
     try {
-      const endpoint = activeTab === 'passengers' ? '/contact' : '/rider-support';
-      await apiClient(`${endpoint}/${selectedTicketId}/status`, {
-        method: 'PUT',
-        data: { status: newStatus },
-      });
-      toast('success', 'Status updated successfully');
-      fetchTickets();
+      const res = await apiClient(`/admin/support/tickets/${id}`);
+      setSelectedTicket(res?.data || res);
     } catch (err: any) {
-      toast('error', 'Failed to update status', err.message);
+      console.error(err);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (selectedTicketId) {
+      fetchTicketDetails(selectedTicketId);
+    } else {
+      setSelectedTicket(null);
+    }
+  }, [selectedTicketId, fetchTicketDetails]);
+
+  // Send reply
+  const handleSendReply = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedTicketId || !replyText.trim()) return;
+
+    try {
+      setIsSending(true);
+      await apiClient(`/admin/support/tickets/${selectedTicketId}/reply`, {
+        method: 'POST',
+        data: { message: replyText.trim() },
+      });
+      toast('success', 'Reply sent successfully');
+      setReplyText('');
+      await fetchTicketDetails(selectedTicketId);
+      await fetchTickets();
+    } catch (err: any) {
+      toast('error', 'Failed to send reply', err.message);
+    } finally {
+      setIsSending(false);
     }
   };
 
-  const selectedTicket = tickets.find(t => t._id === selectedTicketId);
+  // Change status
+  const handleStatusChange = async (newStatus: string) => {
+    if (!selectedTicketId) return;
 
-  const pendingTickets = tickets.filter(t => t.status === 'pending');
-  const resolvedTickets = tickets.filter(t => t.status === 'resolved');
-  const closedTickets = tickets.filter(t => t.status === 'closed');
-
-  const formatDate = (dateStr: string) => {
-    const d = new Date(dateStr);
-    const now = new Date();
-    const diffMs = now.getTime() - d.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-    if (diffMins < 1) return 'Just now';
-    if (diffMins < 60) return `${diffMins}m ago`;
-    const diffHours = Math.floor(diffMins / 60);
-    if (diffHours < 24) return `${diffHours}h ago`;
-    return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+    try {
+      setIsUpdatingStatus(true);
+      await apiClient(`/admin/support/tickets/${selectedTicketId}/status`, {
+        method: 'PUT',
+        data: { status: newStatus },
+      });
+      toast('success', `Ticket status updated to ${newStatus}`);
+      await fetchTicketDetails(selectedTicketId);
+      await fetchTickets();
+    } catch (err: any) {
+      toast('error', 'Failed to update status', err.message);
+    } finally {
+      setIsUpdatingStatus(false);
+    }
   };
 
-  const getStatusStyle = (status: string) => {
-    switch(status) {
-      case 'resolved': return 'bg-green-100 text-green-800 border-green-200';
-      case 'closed': return 'bg-gray-100 text-gray-800 border-gray-200';
-      case 'pending': 
-      default: return 'bg-orange-100 text-orange-800 border-orange-200';
+  const formatPriorityBadge = (priority: string) => {
+    switch (priority) {
+      case 'CRITICAL':
+        return <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-red-100 text-red-700">CRITICAL</span>;
+      case 'HIGH':
+        return <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-orange-100 text-orange-700">HIGH</span>;
+      case 'MEDIUM':
+        return <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-100 text-blue-700">MEDIUM</span>;
+      default:
+        return <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-gray-100 text-gray-700">LOW</span>;
+    }
+  };
+
+  const formatStatusBadge = (status: string) => {
+    switch (status) {
+      case 'OPEN':
+        return <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-red-50 text-red-700 border border-red-200">Open</span>;
+      case 'IN_PROGRESS':
+        return <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200">In Progress</span>;
+      case 'RESOLVED':
+        return <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">Resolved</span>;
+      case 'CLOSED':
+        return <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-gray-100 text-gray-700 border border-gray-200">Closed</span>;
+      default:
+        return <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-gray-100 text-gray-700">{status}</span>;
     }
   };
 
   return (
-    <div className="max-w-[1400px] mx-auto flex flex-col pb-8">
-      {/* Header */}
-      <div className="flex flex-col gap-4 mb-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Support & Contact</h1>
-            <p className="text-sm text-gray-500 mt-0.5">Manage support queries and resolve user issues</p>
-          </div>
-          <div className="flex items-center gap-2">
-             <span className="bg-orange-100 text-orange-800 px-3 py-1.5 rounded-full text-xs font-bold border border-orange-200">{pendingTickets.length} pending</span>
-             <span className="bg-green-100 text-green-800 px-3 py-1.5 rounded-full text-xs font-bold border border-green-200">{resolvedTickets.length} resolved</span>
-             <span className="bg-gray-100 text-gray-800 px-3 py-1.5 rounded-full text-xs font-bold border border-gray-200">{closedTickets.length} closed</span>
-          </div>
+    <div className="max-w-[1400px] mx-auto h-[calc(100vh-95px)] flex flex-col pb-2">
+      {/* Top Header */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4 flex-shrink-0">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+            <MessageSquare className="text-woosh-primary" size={24} />
+            Support Inbox & Ticketing
+          </h1>
+          <p className="text-xs text-gray-500 mt-0.5">Manage customer inquiries, disputes, and live agent responses</p>
         </div>
 
-        <div className="flex items-center justify-between border-b border-gray-200 pb-2">
-          <div className="flex items-center gap-2">
-            <button 
-              onClick={() => setActiveTab('passengers')} 
-              className={`flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${activeTab === 'passengers' ? 'bg-gray-900 text-white' : 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-50'}`}
+        {/* Status Count Pills */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0 w-full sm:w-auto">
+          {[
+            { id: 'all', label: 'All Tickets', count: counts.open + counts.inProgress + counts.resolved + counts.closed },
+            { id: 'open', label: 'Open', count: counts.open, color: 'text-red-600' },
+            { id: 'in_progress', label: 'In Progress', count: counts.inProgress, color: 'text-amber-600' },
+            { id: 'resolved', label: 'Resolved', count: counts.resolved, color: 'text-emerald-600' },
+            { id: 'closed', label: 'Closed', count: counts.closed, color: 'text-gray-500' },
+          ].map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => { setStatusFilter(tab.id); setPage(1); }}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition whitespace-nowrap ${
+                statusFilter === tab.id
+                  ? 'bg-gray-900 text-white shadow-sm'
+                  : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
+              }`}
             >
-              <Users size={16} /> Passenger Support
+              <span>{tab.label}</span>
+              <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${statusFilter === tab.id ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-700 font-mono'}`}>
+                {tab.count}
+              </span>
             </button>
-            <button 
-              onClick={() => setActiveTab('riders')} 
-              className={`flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${activeTab === 'riders' ? 'bg-gray-900 text-white' : 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-50'}`}
-            >
-              <UserCircle size={16} /> Rider Support
-            </button>
-          </div>
+          ))}
         </div>
       </div>
 
-      {/* Main Split Content */}
-      <div className="flex flex-col lg:flex-row gap-6 items-start">
-        
-        {/* Left Column: List */}
-        <div className="w-full lg:w-[40%] flex flex-col gap-3">
-          {isLoading ? (
-             <div className="animate-pulse flex flex-col gap-3">
-               {[1, 2, 3, 4].map(i => <div key={i} className="h-32 bg-gray-100 rounded-xl"></div>)}
-             </div>
-          ) : tickets.length === 0 ? (
-            <div className="bg-white rounded-xl border border-gray-200 p-8 text-center text-gray-500 shadow-sm flex flex-col items-center">
-              <MessageSquare size={48} className="text-gray-300 mb-3" />
-              <p className="font-bold text-gray-900">No support tickets found</p>
-              <p className="text-sm">There are currently no {activeTab} support tickets.</p>
+      {/* Main Split Interface */}
+      <div className="flex-1 bg-white border border-gray-200 rounded-2xl shadow-sm flex overflow-hidden min-h-0">
+        {/* Left Pane: Ticket List */}
+        <div className="w-full md:w-[380px] lg:w-[420px] border-r border-gray-200 flex flex-col flex-shrink-0 bg-gray-50/50">
+          {/* Search bar */}
+          <div className="p-3 border-b border-gray-200 bg-white">
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Search ticket # or subject..."
+                value={search}
+                onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+                className="w-full pl-8 pr-3 py-1.5 text-xs bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-woosh-primary"
+              />
+              <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
             </div>
-          ) : (
-            tickets.map((ticket) => (
-              <div 
-                key={ticket._id}
-                onClick={() => setSelectedTicketId(ticket._id)}
-                className={`bg-white rounded-xl p-4 border-2 cursor-pointer transition-all ${selectedTicketId === ticket._id ? 'border-pink-500 shadow-md' : 'border-gray-200 hover:border-gray-300'} shadow-sm`}
-              >
-                <div className="flex justify-between items-start mb-2">
-                  <div className="flex items-center gap-2">
-                     <span className={`text-[10px] font-bold px-2 py-0.5 rounded tracking-wider uppercase border ${getStatusStyle(ticket.status)}`}>
-                        {ticket.status}
-                     </span>
-                     <span className="font-mono text-xs text-gray-500 font-bold">{ticket._id.slice(-6).toUpperCase()}</span>
-                  </div>
-                  <span className="text-xs text-gray-500 font-medium">{formatDate(ticket.createdAt)}</span>
-                </div>
-                
-                <h3 className="font-bold text-gray-900 text-base mb-1">{ticket.queryType}</h3>
-                
-                <div className="flex items-center gap-2 mb-2">
-                  <UserCircle size={14} className="text-gray-400" />
-                  <span className="font-bold text-gray-700 text-sm">{ticket.name}</span>
-                  <span className="text-gray-400">·</span>
-                  <span className="text-xs text-gray-500">{ticket.phone}</span>
-                </div>
-                
-                <p className="text-sm text-gray-600 line-clamp-2 mt-2 bg-gray-50 p-2 rounded-lg border border-gray-100">
-                  {ticket.message}
-                </p>
+          </div>
+
+          {/* Ticket List Items */}
+          <div className="flex-1 overflow-y-auto divide-y divide-gray-100">
+            {isLoading ? (
+              <div className="p-8 text-center text-xs text-gray-400">Loading tickets...</div>
+            ) : tickets.length === 0 ? (
+              <div className="p-8 text-center text-gray-400 text-xs">
+                No tickets matching current filter.
               </div>
-            ))
+            ) : (
+              tickets.map(ticket => {
+                const isSelected = selectedTicketId === ticket._id;
+                return (
+                  <div
+                    key={ticket._id}
+                    onClick={() => setSelectedTicketId(ticket._id)}
+                    className={`p-3.5 cursor-pointer transition flex flex-col gap-1.5 ${
+                      isSelected
+                        ? 'bg-woosh-primary/5 border-l-4 border-l-woosh-primary bg-white'
+                        : 'hover:bg-gray-100/70 bg-transparent'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="font-mono text-[11px] font-bold text-gray-700 bg-gray-100 px-1.5 py-0.5 rounded">
+                        #{ticket.ticketNumber || ticket._id.slice(-6).toUpperCase()}
+                      </span>
+                      <div className="flex items-center gap-1.5">
+                        {formatPriorityBadge(ticket.priority)}
+                        <span className="text-[10px] text-gray-400">
+                          {new Date(ticket.createdAt).toLocaleDateString([], { month: 'short', day: 'numeric' })}
+                        </span>
+                      </div>
+                    </div>
+
+                    <p className="text-sm font-bold text-gray-900 truncate">{ticket.subject}</p>
+                    
+                    <div className="flex items-center justify-between mt-1 text-xs text-gray-500">
+                      <span className="truncate max-w-[150px] font-medium text-gray-700">
+                        {ticket.passenger?.name || 'Passenger'}
+                      </span>
+                      {formatStatusBadge(ticket.status)}
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+
+          {totalPages > 1 && (
+            <div className="p-2.5 border-t border-gray-200 bg-white flex items-center justify-between text-xs">
+              <button
+                disabled={page === 1}
+                onClick={() => setPage(p => p - 1)}
+                className="px-2 py-1 bg-gray-100 rounded hover:bg-gray-200 disabled:opacity-40"
+              >
+                Previous
+              </button>
+              <span className="text-gray-500 font-mono">Page {page} / {totalPages}</span>
+              <button
+                disabled={page === totalPages}
+                onClick={() => setPage(p => p + 1)}
+                className="px-2 py-1 bg-gray-100 rounded hover:bg-gray-200 disabled:opacity-40"
+              >
+                Next
+              </button>
+            </div>
           )}
         </div>
 
-        {/* Right Column: Details */}
-        <div className="w-full lg:w-[60%] flex flex-col gap-4 sticky top-6">
+        {/* Right Pane: Ticket Detail & Live Chat Thread */}
+        <div className="flex-1 flex flex-col min-w-0 bg-white">
           {selectedTicket ? (
             <>
-              {/* Ticket Header & Contact */}
-              <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
-                <div className="flex justify-between items-start mb-6">
-                  <div>
-                    <div className="flex items-center gap-3 mb-2">
-                      <span className={`text-[10px] font-bold px-2 py-1 rounded tracking-wider uppercase border ${getStatusStyle(selectedTicket.status)}`}>
-                        {selectedTicket.status}
-                      </span>
-                      <span className="text-sm text-gray-500 flex items-center gap-1">
-                        <Clock size={14} /> {new Date(selectedTicket.createdAt).toLocaleString()}
+              {/* Ticket Topbar */}
+              <div className="p-4 border-b border-gray-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-white">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono text-xs font-bold text-gray-500">
+                      #{selectedTicket.ticketNumber || selectedTicket._id}
+                    </span>
+                    {formatStatusBadge(selectedTicket.status)}
+                    {formatPriorityBadge(selectedTicket.priority)}
+                  </div>
+                  <h2 className="text-base font-bold text-gray-900 mt-1">{selectedTicket.subject}</h2>
+                  <p className="text-xs text-gray-500">
+                    Category: <span className="font-semibold capitalize text-gray-700">{selectedTicket.category?.replace(/_/g, ' ')}</span> · 
+                    Created {new Date(selectedTicket.createdAt).toLocaleString()}
+                  </p>
+                </div>
+
+                {/* Status Action Buttons */}
+                <div className="flex items-center gap-2">
+                  {selectedTicket.status !== 'RESOLVED' && selectedTicket.status !== 'CLOSED' && (
+                    <button
+                      onClick={() => handleStatusChange('RESOLVED')}
+                      disabled={isUpdatingStatus}
+                      className="px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm flex items-center gap-1.5"
+                    >
+                      <CheckCircle size={14} /> Resolve Ticket
+                    </button>
+                  )}
+                  {selectedTicket.status !== 'CLOSED' && (
+                    <button
+                      onClick={() => handleStatusChange('CLOSED')}
+                      disabled={isUpdatingStatus}
+                      className="px-3 py-1.5 rounded-lg text-xs font-bold bg-gray-800 hover:bg-gray-900 text-white"
+                    >
+                      Close Ticket
+                    </button>
+                  )}
+                  {selectedTicket.status === 'CLOSED' && (
+                    <button
+                      onClick={() => handleStatusChange('OPEN')}
+                      disabled={isUpdatingStatus}
+                      className="px-3 py-1.5 rounded-lg text-xs font-bold bg-gray-100 hover:bg-gray-200 text-gray-700"
+                    >
+                      Reopen
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Passenger & Ride Info Bar */}
+              <div className="px-4 py-2.5 bg-gray-50 border-b border-gray-100 flex items-center justify-between text-xs text-gray-600">
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-1.5">
+                    <User size={13} className="text-gray-400" />
+                    <span className="font-bold text-gray-900">{selectedTicket.passenger?.name || 'Customer'}</span>
+                    <span className="text-gray-400">({selectedTicket.passenger?.phoneNumber || 'No phone'})</span>
+                  </div>
+                  {selectedTicket.ride && (
+                    <div className="flex items-center gap-1.5 border-l border-gray-200 pl-4">
+                      <Car size={13} className="text-gray-400" />
+                      <span>Ride:</span>
+                      <span className="font-mono font-bold text-gray-900">
+                        {typeof selectedTicket.ride === 'object' ? selectedTicket.ride._id : selectedTicket.ride}
                       </span>
                     </div>
-                    <h2 className="text-2xl font-bold text-gray-900">{selectedTicket.queryType}</h2>
-                  </div>
-                  <button className="px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-bold text-gray-700 hover:bg-gray-50 transition-colors flex items-center gap-2">
-                    <Phone size={16} /> Call User
-                  </button>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4 p-4 bg-gray-50 rounded-lg border border-gray-100 mb-6">
-                  <div>
-                    <div className="text-[10px] font-bold text-gray-400 tracking-wider mb-1 uppercase">Name</div>
-                    <div className="font-bold text-gray-900 text-base">{selectedTicket.name}</div>
-                  </div>
-                  <div>
-                    <div className="text-[10px] font-bold text-gray-400 tracking-wider mb-1 uppercase">Phone Number</div>
-                    <div className="font-bold text-gray-900 text-base">{selectedTicket.phone}</div>
-                  </div>
-                </div>
-
-                {/* Message Body */}
-                <div>
-                  <h3 className="font-bold text-gray-900 mb-3 text-sm flex items-center gap-2">
-                    <MessageSquare size={16} className="text-gray-400" />
-                    Query Message
-                  </h3>
-                  <div className="bg-white border border-gray-200 rounded-lg p-4 text-gray-800 text-sm leading-relaxed min-h-[150px] shadow-sm">
-                    {selectedTicket.message}
-                  </div>
+                  )}
                 </div>
               </div>
 
-              {/* Resolution Actions */}
-              <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
-                <h3 className="font-bold text-gray-900 mb-4 text-sm">Update Status & Resolve</h3>
-                
-                <div className="grid grid-cols-3 gap-3 mb-6">
-                  <label className={`flex flex-col items-center gap-2 border-2 rounded-xl p-4 cursor-pointer transition-colors ${selectedTicket.status === 'pending' ? 'border-orange-500 bg-orange-50' : 'border-gray-200 hover:bg-gray-50'}`}>
-                    <input 
-                      type="radio" 
-                      name="status" 
-                      className="hidden" 
-                      checked={selectedTicket.status === 'pending'}
-                      onChange={() => handleStatusChange('pending')}
-                    />
-                    <AlertCircle size={24} className={selectedTicket.status === 'pending' ? 'text-orange-500' : 'text-gray-400'} />
-                    <span className={`text-sm font-bold ${selectedTicket.status === 'pending' ? 'text-orange-700' : 'text-gray-600'}`}>Pending</span>
-                  </label>
-                  
-                  <label className={`flex flex-col items-center gap-2 border-2 rounded-xl p-4 cursor-pointer transition-colors ${selectedTicket.status === 'resolved' ? 'border-green-500 bg-green-50' : 'border-gray-200 hover:bg-gray-50'}`}>
-                    <input 
-                      type="radio" 
-                      name="status" 
-                      className="hidden" 
-                      checked={selectedTicket.status === 'resolved'}
-                      onChange={() => handleStatusChange('resolved')}
-                    />
-                    <CheckCircle2 size={24} className={selectedTicket.status === 'resolved' ? 'text-green-500' : 'text-gray-400'} />
-                    <span className={`text-sm font-bold ${selectedTicket.status === 'resolved' ? 'text-green-700' : 'text-gray-600'}`}>Resolved</span>
-                  </label>
-                  
-                  <label className={`flex flex-col items-center gap-2 border-2 rounded-xl p-4 cursor-pointer transition-colors ${selectedTicket.status === 'closed' ? 'border-gray-900 bg-gray-100' : 'border-gray-200 hover:bg-gray-50'}`}>
-                    <input 
-                      type="radio" 
-                      name="status" 
-                      className="hidden" 
-                      checked={selectedTicket.status === 'closed'}
-                      onChange={() => handleStatusChange('closed')}
-                    />
-                    <CheckCircle2 size={24} className={selectedTicket.status === 'closed' ? 'text-gray-900' : 'text-gray-400'} />
-                    <span className={`text-sm font-bold ${selectedTicket.status === 'closed' ? 'text-gray-900' : 'text-gray-600'}`}>Closed</span>
-                  </label>
-                </div>
-
-                <div>
-                  <p className="text-xs font-bold text-gray-700 mb-2">Resolution Notes (Optional)</p>
-                  <textarea 
-                    className="w-full text-sm border border-gray-200 rounded-lg px-3 py-3 focus:outline-none focus:border-pink-500 min-h-[100px] resize-none mb-3 bg-gray-50"
-                    placeholder="Add details about how this was resolved..."
-                  ></textarea>
-                  
-                  <button className="w-full bg-gray-900 text-white font-bold text-sm py-3 rounded-lg hover:bg-gray-800 transition-colors shadow-sm">
-                    Save Notes & Status
-                  </button>
-                </div>
+              {/* Messages Thread */}
+              <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50/50">
+                {selectedTicket.messages && selectedTicket.messages.length > 0 ? (
+                  selectedTicket.messages.map((msg: any, idx: number) => {
+                    const isAgent = msg.sender === 'support_agent';
+                    return (
+                      <div
+                        key={idx}
+                        className={`flex flex-col ${isAgent ? 'items-end' : 'items-start'}`}
+                      >
+                        <div className="flex items-center gap-1.5 mb-1 px-1 text-[11px] text-gray-400">
+                          <span className="font-bold">{isAgent ? 'Support Team' : selectedTicket.passenger?.name || 'Passenger'}</span>
+                          <span>·</span>
+                          <span>{new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                        </div>
+                        <div
+                          className={`max-w-[80%] rounded-2xl px-4 py-2.5 text-xs shadow-sm leading-relaxed ${
+                            isAgent
+                              ? 'bg-woosh-primary text-white rounded-tr-none'
+                              : 'bg-white border border-gray-200 text-gray-900 rounded-tl-none'
+                          }`}
+                        >
+                          <p>{msg.message}</p>
+                        </div>
+                      </div>
+                    );
+                  })
+                ) : (
+                  <div className="text-center py-12 text-gray-400 text-xs">
+                    No messages recorded yet in this conversation.
+                  </div>
+                )}
               </div>
+
+              {/* Reply Box */}
+              <form onSubmit={handleSendReply} className="p-3 border-t border-gray-200 bg-white flex items-center gap-2">
+                <input
+                  type="text"
+                  value={replyText}
+                  onChange={(e) => setReplyText(e.target.value)}
+                  placeholder="Type an official reply to the customer..."
+                  className="flex-1 border border-gray-200 rounded-xl px-4 py-2.5 text-xs focus:outline-none focus:border-woosh-primary bg-gray-50 focus:bg-white"
+                  disabled={selectedTicket.status === 'CLOSED'}
+                />
+                <button
+                  type="submit"
+                  disabled={isSending || !replyText.trim() || selectedTicket.status === 'CLOSED'}
+                  className="bg-woosh-primary hover:bg-woosh-primary/90 text-white font-bold text-xs px-4 py-2.5 rounded-xl transition shadow flex items-center gap-1.5 disabled:opacity-40"
+                >
+                  <Send size={14} />
+                  <span>{isSending ? 'Sending...' : 'Reply'}</span>
+                </button>
+              </form>
             </>
           ) : (
-            <div className="flex-1 bg-white rounded-xl border border-gray-200 flex flex-col items-center justify-center shadow-sm text-gray-500">
-               <MessageSquare size={64} className="text-gray-200 mb-4" />
-               <p className="font-bold text-gray-900 text-lg">Select a ticket</p>
-               <p className="text-sm mt-1">Choose a ticket from the left to view details</p>
+            <div className="flex-1 flex flex-col items-center justify-center text-gray-400 p-8">
+              <MessageSquare size={48} className="text-gray-300 mb-2" />
+              <p className="text-sm font-semibold text-gray-600">Select a support ticket</p>
+              <p className="text-xs text-gray-400 mt-1">Choose an inquiry from the left panel to read the thread and reply.</p>
             </div>
           )}
         </div>

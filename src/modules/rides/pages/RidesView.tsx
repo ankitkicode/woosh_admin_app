@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Card, CardHeader, CardContent } from '../../../common/components/Card';
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '../../../common/components/Table';
 import { Badge } from '../../../common/components/Badge';
@@ -22,16 +22,30 @@ const STATUS_TABS = [
 
 export function RidesView() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { toast } = useToast();
+
+  const urlSearch = searchParams.get('search') || '';
+  const urlTab = searchParams.get('tab') || 'all';
 
   const [rides, setRides] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
 
-  const [statusTab, setStatusTab] = useState('all');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [statusTab, setStatusTab] = useState(urlTab);
+  const [searchQuery, setSearchQuery] = useState(urlSearch);
+  const [debouncedSearch, setDebouncedSearch] = useState(urlSearch);
+
+  useEffect(() => {
+    if (urlSearch !== searchQuery) {
+      setSearchQuery(urlSearch);
+      setDebouncedSearch(urlSearch);
+    }
+    if (urlTab && urlTab !== statusTab) {
+      setStatusTab(urlTab);
+    }
+  }, [urlSearch, urlTab]);
 
   // Debounce search
   useEffect(() => {

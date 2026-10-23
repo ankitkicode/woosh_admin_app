@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { fetchRiderById, approveRider, rejectRider, reviewRiderDocument, deleteRider, type RiderDetailsResponse } from '../api/ridersApi';
+import { fetchRiderById, approveRider, rejectRider, reviewRiderDocument, deleteRider, toggleRiderOnlineStatus, type RiderDetailsResponse } from '../api/ridersApi';
 import { ArrowLeft, CheckCircle, XCircle, FileText, AlertCircle, Eye, Bike, ShieldCheck, Wallet, Trash2, AlertTriangle, Edit3, Check } from 'lucide-react';
 import { DocumentViewerModal } from '../components/DocumentViewerModal';
 import type { DocumentData } from '../components/DocumentViewerModal';
@@ -108,6 +108,20 @@ export const RiderDetailsPage: React.FC = () => {
       navigate('/riders');
     } catch (err: any) {
       toast('error', 'Deletion failed', err.message);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleToggleOnline = async () => {
+    if (!id) return;
+    try {
+      setActionLoading(true);
+      await toggleRiderOnlineStatus(id);
+      toast('success', `Rider status updated successfully`);
+      await loadData();
+    } catch (err: any) {
+      toast('error', 'Status toggle failed', err.message);
     } finally {
       setActionLoading(false);
     }
@@ -349,10 +363,19 @@ export const RiderDetailsPage: React.FC = () => {
                 </div>
                 <div>
                   <span className="text-xs font-semibold text-woosh-muted uppercase tracking-wider block mb-1">Online Status</span>
-                  <div className="mt-1">
+                  <div className="mt-1 flex items-center justify-between gap-2">
                     <Badge variant={profile.isOnline ? 'success' : 'neutral'} dot>
-                      {profile.isOnline ? 'Online (Accepting rides)' : 'Offline'}
+                      {profile.isOnline ? 'Online (Accepting)' : 'Offline'}
                     </Badge>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={actionLoading}
+                      onClick={handleToggleOnline}
+                      className={profile.isOnline ? 'text-amber-700 border-amber-300 hover:bg-amber-50 text-xs py-1 px-2.5 h-auto' : 'text-emerald-700 border-emerald-300 hover:bg-emerald-50 text-xs py-1 px-2.5 h-auto'}
+                    >
+                      {profile.isOnline ? 'Switch Offline' : 'Switch Online'}
+                    </Button>
                   </div>
                 </div>
               </div>

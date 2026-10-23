@@ -1,85 +1,96 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Ban, CheckCircle2, Eye } from 'lucide-react';
+import { Search, Eye, Users, Download, Ban, CheckCircle2 } from 'lucide-react';
 import { apiClient } from '../../../common/utils/apiClient';
 import { useToast } from '../../../common/components/Toast';
+import { Card, CardContent, CardHeader, CardTitle } from '../../../common/components/Card';
+import { Badge } from '../../../common/components/Badge';
+import { Avatar } from '../../../common/components/Avatar';
+import { Pagination } from '../../../common/components/Pagination';
+import { EmptyState } from '../../../common/components/EmptyState';
+import { SkeletonTable } from '../../../common/components/Skeleton';
+import { Input } from '../../../common/components/Input';
+import { Button } from '../../../common/components/Button';
+import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '../../../common/components/Table';
+import { ExportModal, type ExportColumn } from '../../../common/components/ExportModal';
+import { downloadDataExport, type ExportColumnDef } from '../../../common/utils/exportUtils';
+
+const PASSENGER_STATUS_TABS = [
+  { id: 'all', label: 'All Passengers' },
+  { id: 'active', label: 'Active' },
+  { id: 'banned', label: 'Banned / Suspended' },
+];
+
+const PASSENGER_EXPORT_COLUMNS: ExportColumn[] = [
+  { id: 'name', label: 'Full Name', category: 'Personal Information' },
+  { id: 'phone', label: 'Phone Number', category: 'Personal Information' },
+  { id: 'email', label: 'Email Address', category: 'Personal Information' },
+  { id: 'city', label: 'City / Region', category: 'Personal Information' },
+  { id: 'role', label: 'Account Role', category: 'Account Details' },
+  { id: 'status', label: 'Account Status', category: 'Account Details' },
+  { id: 'joinedDate', label: 'Registration Date', category: 'Account Details' },
+  { id: 'passengerId', label: 'Passenger User ID', category: 'Account Details', defaultSelected: false },
+  { id: 'emergencyContacts', label: 'Emergency Contacts Count', category: 'Safety & Preferences' },
+  { id: 'walletBalance', label: 'Wallet Balance (₹)', category: 'Financial' },
+];
 
 export function PassengersView() {
+  const navigate = useNavigate();
+  const { toast } = useToast();
+
   const [passengers, setPassengers] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [search, setSearch] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalUsers, setTotalUsers] = useState(0);
-  const [activeTab, setActiveTab] = useState('active');
-  const { toast } = useToast();
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    fetchPassengers();
-  }, [search, page, activeTab]);
+  const [status, setStatus] = useState('all');
+  const [search, setSearch] = useState('');
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
 
   const fetchPassengers = async () => {
     try {
-      setIsLoading(true);
-      const url = search
-        ? `/admin/users?role=passenger&search=${search}&page=${page}`
-        : `/admin/users?role=passenger&page=${page}`;
-      const response = await apiClient(url).catch(() => null);
-      
-      let fetchedPassengers = response?.data?.users || response?.users || [];
-      let pages = response?.data?.totalPages || response?.totalPages || 1;
-      let total = response?.data?.total || response?.total || fetchedPassengers.length;
-      
-      // Fallback Demo Data for aesthetics
-      if (fetchedPassengers.length === 0) {
-        fetchedPassengers = [
-          {
-            _id: '6ac5f25adebccda40ae059c9',
-            name: 'Susheel Kumar Patel',
-            phoneNumber: '9685020930',
-            isActive: true,
-            city: 'Bhopal',
-            createdAt: '2026-10-07T07:18:50.087Z',
-            role: 'both'
-          },
-          {
-            _id: '6ac4d6370635f260de2a466b',
-            name: 'Anjali Verma',
-            phoneNumber: '7987353932',
-            isActive: true,
-            city: 'Indore',
-            createdAt: '2026-10-06T11:06:31.744Z',
-            role: 'passenger'
-          },
-          {
-            _id: '6ac3fbd50635f260de2a4652',
-            name: 'Rohit Sharma',
-            phoneNumber: '9826903850',
-            isActive: false,
-            city: 'Bhopal',
-            createdAt: '2026-10-05T19:34:45.506Z',
-            role: 'passenger'
-          }
-        ];
-        pages = 1;
-        total = 3;
-      }
-      
-      if (activeTab === 'active') {
-        fetchedPassengers = fetchedPassengers.filter((p: any) => p.isActive);
-      } else if (activeTab === 'banned') {
-        fetchedPassengers = fetchedPassengers.filter((p: any) => !p.isActive);
-      }
+      setLoading(true);
+      const params = new URLSearchParams();
+      params.append('role', 'passenger');
+      params.append('page', page.toString());
+      params.append('limit', '15');
+      if (search.trim()) params.append('search', search.trim());
+      if (status === 'active') params.append('isActive', 'true');
+      if (status === 'banned') params.append('isActive', 'false');
+
+      const response = await apiClient(`/admin/users?${params.toString()}`).catch(() => null);
+
+      const fetchedPassengers = response?.data?.users || response?.users || [];
+      const pages = response?.data?.totalPages || response?.totalPages || 1;
+      const total = response?.data?.total || response?.total || fetchedPassengers.length;
 
       setPassengers(fetchedPassengers);
       setTotalPages(pages);
       setTotalUsers(total);
-    } catch (err) {
+      setError(null);
+    } catch (err: any) {
       console.error('Failed to load passengers', err);
+      setError(err?.message || 'Failed to load passengers');
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
+  };
+
+  useEffect(() => {
+    fetchPassengers();
+  }, [page, status]);
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    setPage(1);
+    fetchPassengers();
+  };
+
+  const handleTabChange = (newStatus: string) => {
+    setStatus(newStatus);
+    setPage(1);
   };
 
   const toggleBanStatus = async (id: string, isActive: boolean, e: React.MouseEvent) => {
@@ -94,147 +105,267 @@ export function PassengersView() {
     }
   };
 
+  // Export Accessor Logic
+  const getPassengerAccessor = (colId: string) => {
+    switch (colId) {
+      case 'name': return (p: any) => p.name || 'Incomplete Profile';
+      case 'phone': return (p: any) => p.phoneNumber || '';
+      case 'email': return (p: any) => p.email || '';
+      case 'city': return (p: any) => p.city || 'Bhopal';
+      case 'role': return (p: any) => p.role === 'both' ? 'Passenger & Rider' : 'Passenger';
+      case 'status': return (p: any) => p.isActive ? 'Active' : 'Banned';
+      case 'joinedDate': return (p: any) => new Date(p.createdAt).toLocaleDateString();
+      case 'passengerId': return (p: any) => p._id;
+      case 'emergencyContacts': return (p: any) => p.emergencyContacts?.length || 0;
+      case 'walletBalance': return (p: any) => p.walletBalance ?? 0;
+      default: return (p: any) => p[colId] || '';
+    }
+  };
+
+  const handleExportPassengers = async (selectedCols: string[], scope: 'current' | 'all', format: 'csv' | 'json') => {
+    let records: any[] = [];
+    if (scope === 'current') {
+      records = passengers;
+    } else {
+      // Fetch all matching records
+      const params = new URLSearchParams();
+      params.append('role', 'passenger');
+      params.append('page', '1');
+      params.append('limit', '3000');
+      if (search.trim()) params.append('search', search.trim());
+      if (status === 'active') params.append('isActive', 'true');
+      if (status === 'banned') params.append('isActive', 'false');
+
+      const res = await apiClient(`/admin/users?${params.toString()}`).catch(() => null);
+      records = res?.data?.users || res?.users || [];
+    }
+
+    const exportColDefs: ExportColumnDef[] = selectedCols.map(id => {
+      const colInfo = PASSENGER_EXPORT_COLUMNS.find(c => c.id === id);
+      return {
+        id,
+        label: colInfo?.label || id,
+        accessor: getPassengerAccessor(id),
+      };
+    });
+
+    downloadDataExport(records, exportColDefs, `woosh_passengers_${status}`, format);
+  };
+
   return (
-    <div className="max-w-[1400px] mx-auto h-[calc(100vh-100px)] flex flex-col pb-4">
-      {/* Header */}
-      <div className="flex flex-col gap-4 mb-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Passengers</h1>
-            <p className="text-sm text-gray-500 mt-0.5">Manage passenger accounts and access · {totalUsers} total passengers</p>
+    <div className="space-y-5">
+      {/* Top Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-bold text-woosh-dark">Passenger Management</h1>
+          <p className="text-sm text-woosh-muted mt-0.5">
+            Monitor passenger accounts, review trip histories, and manage platform safety access
+          </p>
+        </div>
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={() => setIsExportModalOpen(true)}
+          className="flex items-center gap-2 border-gray-200 hover:border-gray-300 shadow-sm"
+        >
+          <Download size={14} className="text-woosh-primary" />
+          <span>Export Passengers</span>
+        </Button>
+      </div>
+
+      {/* Filter Tabs & Search Card */}
+      <Card>
+        <CardContent className="p-4 space-y-4">
+          {/* Quick status tabs */}
+          <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none border-b border-gray-100">
+            {PASSENGER_STATUS_TABS.map((tab) => {
+              const isActive = status === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => handleTabChange(tab.id)}
+                  className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${
+                    isActive
+                      ? 'bg-woosh-primary text-white shadow-sm'
+                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                  }`}
+                >
+                  {tab.label}
+                  {isActive && totalUsers !== undefined && (
+                    <span className="ml-1.5 px-1.5 py-0.5 rounded-full bg-white/20 text-[10px]">
+                      {totalUsers}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
           </div>
-          <div className="relative">
-            <input
-              type="text"
-              placeholder="Search ID, name, phone"
-              value={search}
-              onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-              className="pl-9 pr-4 py-2 w-[280px] bg-white border border-gray-200 rounded-full text-sm focus:outline-none focus:border-pink-500 shadow-sm"
+
+          {/* Search bar */}
+          <form onSubmit={handleSearch} className="flex flex-col sm:flex-row gap-3">
+            <div className="flex-1">
+              <Input
+                icon={<Search size={16} />}
+                placeholder="Search passengers by name, phone number..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
+            <Button type="submit" variant="secondary" size="md">
+              Search
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+
+      {/* Table Card */}
+      <Card>
+        <CardHeader className="py-3.5 flex flex-row items-center justify-between">
+          <CardTitle>
+            {status === 'all'
+              ? 'All Registered Passengers'
+              : `Passengers (${PASSENGER_STATUS_TABS.find(t => t.id === status)?.label})`}
+          </CardTitle>
+          <span className="text-xs text-woosh-muted">
+            Showing {passengers.length} of {totalUsers}
+          </span>
+        </CardHeader>
+
+        <CardContent className="p-0">
+          {loading ? (
+            <SkeletonTable rows={6} />
+          ) : error ? (
+            <EmptyState title="Error loading passengers" description={error} />
+          ) : !passengers.length ? (
+            <EmptyState
+              title="No passengers found"
+              description={
+                status !== 'all'
+                  ? `No passengers found with '${PASSENGER_STATUS_TABS.find(t => t.id === status)?.label}' status.`
+                  : 'Try adjusting your search criteria.'
+              }
             />
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
-          </div>
-        </div>
-
-        <div className="flex items-center justify-between border-b border-gray-200 pb-2">
-          <div className="flex items-center gap-2">
-            <button onClick={() => setActiveTab('all')} className={`px-4 py-1.5 rounded-full text-sm font-medium whitespace-nowrap ${activeTab === 'all' ? 'bg-gray-900 text-white' : 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-50'}`}>
-              All
-            </button>
-            <button onClick={() => setActiveTab('active')} className={`px-4 py-1.5 rounded-full text-sm font-medium whitespace-nowrap ${activeTab === 'active' ? 'bg-gray-900 text-white' : 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-50'}`}>
-              Active
-            </button>
-            <button onClick={() => setActiveTab('banned')} className={`px-4 py-1.5 rounded-full text-sm font-medium whitespace-nowrap ${activeTab === 'banned' ? 'bg-gray-900 text-white' : 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-50'}`}>
-              Banned
-            </button>
-          </div>
-          <div className="text-sm text-gray-500">
-            Sort: <span className="font-bold text-gray-900">Newest first</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Main Content */}
-      <div className="flex-1 bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden flex flex-col">
-        {isLoading ? (
-          <div className="flex-1 flex items-center justify-center">Loading...</div>
-        ) : (
-          <div className="overflow-x-auto flex-1">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="border-b border-gray-200 bg-gray-50/50">
-                  <th className="py-3 px-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Passenger</th>
-                  <th className="py-3 px-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Contact</th>
-                  <th className="py-3 px-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Location</th>
-                  <th className="py-3 px-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Status</th>
-                  <th className="py-3 px-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Joined</th>
-                  <th className="py-3 px-4 text-right"></th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {passengers.length === 0 ? (
-                   <tr><td colSpan={6} className="py-10 text-center text-gray-500">No passengers found.</td></tr>
-                ) : passengers.map((passenger) => (
-                  <tr 
-                    key={passenger._id} 
-                    className="hover:bg-gray-50 transition-colors cursor-pointer"
-                    onClick={() => navigate(`/passengers/${passenger._id}`)}
-                  >
-                    <td className="py-4 px-4 align-top">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-xs flex-shrink-0">
-                          {passenger.name ? passenger.name.substring(0, 2).toUpperCase() : 'NA'}
-                        </div>
-                        <div>
-                          <div className="font-bold text-gray-900 text-sm flex items-center gap-2">
-                             {passenger.name || 'Coming soon'}
-                             {passenger.role === 'both' && <span className="bg-purple-100 text-purple-700 text-[10px] px-1.5 py-0.5 rounded">Rider too</span>}
+          ) : (
+            <>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Passenger</TableHead>
+                    <TableHead>Contact</TableHead>
+                    <TableHead>Location</TableHead>
+                    <TableHead>Account Status</TableHead>
+                    <TableHead>Joined</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {passengers.map((passenger) => (
+                    <TableRow key={passenger._id} className="hover:bg-gray-50 transition-colors">
+                      <TableCell>
+                        <div className="flex items-center gap-2.5">
+                          <Avatar
+                            name={passenger.name}
+                            size="sm"
+                            fallbackIcon={<Users size={18} />}
+                          />
+                          <div>
+                            <div className="font-semibold text-woosh-dark text-sm flex items-center gap-2">
+                              {passenger.name || 'Incomplete Profile'}
+                              {passenger.role === 'both' && (
+                                <span className="bg-purple-100 text-purple-700 text-[10px] font-bold px-1.5 py-0.5 rounded">
+                                  Rider too
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-[11px] text-gray-400 font-mono mt-0.5">
+                              ID: #{passenger._id.slice(-6).toUpperCase()}
+                            </div>
                           </div>
-                          <div className="text-xs text-gray-500 mt-0.5 font-mono">{passenger._id.slice(-6).toUpperCase()}</div>
                         </div>
-                      </div>
-                    </td>
-                    <td className="py-4 px-4 align-top">
-                      <div className="font-bold text-gray-900 text-sm">{passenger.phoneNumber || 'Coming soon'}</div>
-                    </td>
-                    <td className="py-4 px-4 align-top">
-                      <div className="text-sm font-medium text-gray-900">{passenger.city || 'Coming soon'}</div>
-                    </td>
-                    <td className="py-4 px-4 align-top">
-                      {passenger.isActive ? (
-                        <span className="flex items-center gap-1 w-max bg-green-50 text-green-700 px-2 py-1 rounded text-[10px] font-bold border border-green-100">
-                          <CheckCircle2 size={12} /> Active
-                        </span>
-                      ) : (
-                        <span className="flex items-center gap-1 w-max bg-red-50 text-red-700 px-2 py-1 rounded text-[10px] font-bold border border-red-100">
-                          <Ban size={12} /> Banned
-                        </span>
-                      )}
-                    </td>
-                    <td className="py-4 px-4 align-top">
-                      <div className="text-sm font-medium text-gray-900">
-                        {new Date(passenger.createdAt).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })}
-                      </div>
-                    </td>
-                    <td className="py-4 px-4 align-top text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        {passenger.isActive ? (
-                          <button 
-                            onClick={(e) => toggleBanStatus(passenger._id, true, e)}
-                            className="bg-white border border-red-200 text-[#C81E1E] font-bold text-xs px-3 py-1.5 rounded-lg hover:bg-red-50 transition-colors shadow-sm"
+                      </TableCell>
+
+                      <TableCell className="text-woosh-muted text-sm font-medium">
+                        {passenger.phoneNumber || '—'}
+                      </TableCell>
+
+                      <TableCell className="text-woosh-muted text-sm font-medium">
+                        {passenger.city || 'Bhopal'}
+                      </TableCell>
+
+                      <TableCell>
+                        <Badge variant={passenger.isActive ? 'success' : 'error'} dot>
+                          {passenger.isActive ? 'Active' : 'Banned'}
+                        </Badge>
+                      </TableCell>
+
+                      <TableCell className="text-woosh-muted text-sm">
+                        {new Date(passenger.createdAt).toLocaleDateString('en-US', {
+                          day: 'numeric',
+                          month: 'short',
+                          year: 'numeric',
+                        })}
+                      </TableCell>
+
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          {passenger.isActive ? (
+                            <button
+                              onClick={(e) => toggleBanStatus(passenger._id, true, e)}
+                              className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200 transition-colors flex items-center gap-1"
+                              title="Ban Passenger"
+                            >
+                              <Ban size={12} /> Ban
+                            </button>
+                          ) : (
+                            <button
+                              onClick={(e) => toggleBanStatus(passenger._id, false, e)}
+                              className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 transition-colors flex items-center gap-1"
+                              title="Unban Passenger"
+                            >
+                              <CheckCircle2 size={12} /> Unban
+                            </button>
+                          )}
+
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => navigate(`/passengers/${passenger._id}`)}
+                            className="text-woosh-primary hover:bg-woosh-primary-light font-medium"
                           >
-                            Ban
-                          </button>
-                        ) : (
-                          <button 
-                            onClick={(e) => toggleBanStatus(passenger._id, false, e)}
-                            className="bg-white border border-green-200 text-green-700 font-bold text-xs px-3 py-1.5 rounded-lg hover:bg-green-50 transition-colors shadow-sm"
-                          >
-                            Unban
-                          </button>
-                        )}
-                        <button 
-                          onClick={(e) => { e.stopPropagation(); navigate(`/passengers/${passenger._id}`); }}
-                          className="p-1.5 text-gray-400 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
-                        >
-                           <Eye size={16} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-        
-        {totalPages > 1 && (
-          <div className="border-t border-gray-200 p-4 flex items-center justify-between bg-gray-50">
-             <button disabled={page === 1} onClick={() => setPage(p => p - 1)} className="px-3 py-1 bg-white border border-gray-200 rounded text-sm disabled:opacity-50">Previous</button>
-             <span className="text-sm font-bold text-gray-600">Page {page} of {totalPages}</span>
-             <button disabled={page === totalPages} onClick={() => setPage(p => p + 1)} className="px-3 py-1 bg-white border border-gray-200 rounded text-sm disabled:opacity-50">Next</button>
-          </div>
-        )}
-      </div>
+                            <Eye size={14} className="mr-1" /> View Profile
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+
+              {totalPages > 1 && (
+                <div className="px-5 py-3 border-t border-woosh-divider">
+                  <Pagination
+                    currentPage={page}
+                    totalPages={totalPages}
+                    onPageChange={setPage}
+                  />
+                </div>
+              )}
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Export Modal with Column Picker */}
+      <ExportModal
+        isOpen={isExportModalOpen}
+        onClose={() => setIsExportModalOpen(false)}
+        title="Export Passengers Data"
+        description="Select specific columns, file format and scope to generate your passengers data export file."
+        columns={PASSENGER_EXPORT_COLUMNS}
+        totalRecords={totalUsers}
+        currentPageCount={passengers.length}
+        onExport={handleExportPassengers}
+      />
     </div>
   );
 }

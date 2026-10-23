@@ -21,13 +21,15 @@ export async function apiClient<T = any>(endpoint: string, options: FetchOptions
   };
 
   const config: RequestInit = {
-    method: data ? 'POST' : 'GET',
+    method: customOptions.method || (data ? 'POST' : 'GET'),
     headers,
     ...customOptions,
   };
 
-  if (data) {
-    config.body = JSON.stringify(data);
+  if (data !== undefined) {
+    config.body = typeof data === 'string' ? data : JSON.stringify(data);
+  } else if ((customOptions as any).body) {
+    config.body = (customOptions as any).body;
   }
 
   const response = await fetch(`${API_BASE_URL}${endpoint}`, config);
@@ -45,3 +47,16 @@ export async function apiClient<T = any>(endpoint: string, options: FetchOptions
 
   return responseData.data || responseData;
 }
+
+apiClient.get = <T = any>(endpoint: string, options: FetchOptions = {}) =>
+  apiClient<T>(endpoint, { ...options, method: 'GET' });
+
+apiClient.post = <T = any>(endpoint: string, data?: any, options: FetchOptions = {}) =>
+  apiClient<T>(endpoint, { ...options, method: 'POST', data });
+
+apiClient.put = <T = any>(endpoint: string, data?: any, options: FetchOptions = {}) =>
+  apiClient<T>(endpoint, { ...options, method: 'PUT', data });
+
+apiClient.delete = <T = any>(endpoint: string, options: FetchOptions = {}) =>
+  apiClient<T>(endpoint, { ...options, method: 'DELETE' });
+

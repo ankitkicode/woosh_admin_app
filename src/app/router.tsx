@@ -20,6 +20,9 @@ import { InsuranceClaimsPage } from '../modules/insurance/pages/InsuranceClaimsP
 import { SupportPage } from '../modules/support/pages/SupportPage';
 import { PayoutsView } from '../modules/payouts/pages/PayoutsView';
 import { AnalyticsView } from '../modules/dashboard/pages/AnalyticsView';
+import { AdminsPage } from '../modules/admins/pages/AdminsPage';
+import { FleetTrackingPage } from '../modules/tracking/pages/FleetTrackingPage';
+import { BroadcastsPage } from '../modules/notifications/pages/BroadcastsPage';
 
 export function AppRouter() {
   const { isAuthenticated } = useSelector((state: RootState) => state.auth);
@@ -50,6 +53,9 @@ export function AppRouter() {
         <Route path="/cities/add" element={<CityFormPage />} />
         <Route path="/cities/:id/edit" element={<CityFormPage />} />
         <Route path="/payouts" element={<PayoutsView />} />
+        <Route path="/tracking" element={<FleetTrackingPage />} />
+        <Route path="/broadcasts" element={<BroadcastsPage />} />
+        <Route path="/admins" element={<AdminsPage />} />
         <Route path="/settings" element={<SettingsView />} />
       </Route>
 
