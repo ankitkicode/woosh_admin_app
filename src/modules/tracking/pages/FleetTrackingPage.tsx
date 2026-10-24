@@ -22,6 +22,7 @@ import { io, Socket } from 'socket.io-client';
 import { apiClient } from '../../../common/utils/apiClient';
 import { Badge } from '../../../common/components/Badge';
 import { Button } from '../../../common/components/Button';
+import { LiveFleetMap } from '../../../common/components/LiveFleetMap';
 
 interface FleetRider {
   riderId: string;
@@ -99,6 +100,8 @@ export function FleetTrackingPage() {
   const [ridesFilter, setRidesFilter] = useState<'ALL' | 'IN_TRANSIT' | 'SOS_RESOLVED' | 'SOS_ACTIVE'>('ALL');
   const [ridesSearch, setRidesSearch] = useState('');
   const [resolvedSosRideIds, setResolvedSosRideIds] = useState<Set<string>>(new Set());
+  const [selectedRiderId, setSelectedRiderId] = useState<string | null>(null);
+  const mapSectionRef = useRef<HTMLDivElement | null>(null);
 
   // Socket state
   const socketRef = useRef<Socket | null>(null);
@@ -435,6 +438,49 @@ export function FleetTrackingPage() {
         </div>
       </div>
 
+      {/* Live Interactive Fleet Dispatch & Telematics Map */}
+      <div className="bg-white border border-woosh-border rounded-2xl p-5 shadow-sm space-y-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-gray-100 pb-3">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-pink-100 text-woosh-primary flex items-center justify-center font-bold">
+              <Radio size={16} className="animate-pulse" />
+            </div>
+            <div>
+              <h3 className="font-bold text-gray-900 text-sm sm:text-base flex items-center gap-2">
+                Live Fleet Telematics & GPS Radar
+                <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-full">
+                  Real-time GPS
+                </span>
+              </h3>
+              <p className="text-xs text-woosh-muted mt-0.5">
+                Live positions of active and available riders in Bhopal. Click any rider to inspect telemetry.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-bold text-gray-600 bg-gray-50 border border-gray-200 px-3 py-1 rounded-xl">
+              📍 Bhopal Node: 23.2599° N, 77.4126° E
+            </span>
+          </div>
+        </div>
+
+        <div ref={mapSectionRef} className="h-[460px] w-full rounded-xl overflow-hidden border border-gray-200">
+          <LiveFleetMap
+            riders={filteredFleet as any}
+            activeRides={inTransitRides as any}
+            height="100%"
+            center={[23.2599, 77.4126]}
+            zoom={13}
+            selectedRiderId={selectedRiderId}
+            onRiderClick={(rider) => {
+              const rId = rider.riderId || rider._id;
+              if (rId) navigate(`/riders/${rId}`);
+            }}
+          />
+        </div>
+      </div>
+
       {/* Main Content Area */}
       <div className="bg-white border border-woosh-border rounded-2xl p-5 shadow-sm space-y-4">
         {/* Navigation Tabs */}
@@ -683,6 +729,18 @@ export function FleetTrackingPage() {
                         </div>
 
                         <div className="flex items-center gap-1.5">
+                          <button
+                            onClick={() => {
+                              setSelectedRiderId(rider.riderId || rider.userId);
+                              mapSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                            }}
+                            className="px-2 py-1 rounded-lg bg-pink-50 hover:bg-pink-100 text-pink-700 font-semibold text-xs flex items-center gap-1 transition-colors"
+                            title="Focus on Live Google Map"
+                          >
+                            <Radio className="w-3 h-3 text-woosh-primary" />
+                            Radar
+                          </button>
+
                           {mapsUrl && (
                             <a
                               href={mapsUrl}
