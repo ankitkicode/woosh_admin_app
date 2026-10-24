@@ -14,11 +14,22 @@ export async function apiClient<T = any>(endpoint: string, options: FetchOptions
   const state = store.getState();
   const token = state.auth.token;
 
-  const headers: HeadersInit = {
-    'Content-Type': 'application/json',
+  const isFormData =
+    (typeof FormData !== 'undefined' && data instanceof FormData) ||
+    (typeof FormData !== 'undefined' && (customOptions as any).body instanceof FormData);
+
+  const headers: Record<string, string> = {
     ...(token && { Authorization: `Bearer ${token}` }),
-    ...customHeaders,
+    ...(customHeaders as Record<string, string>),
   };
+
+  if (!isFormData) {
+    if (!headers['Content-Type']) {
+      headers['Content-Type'] = 'application/json';
+    }
+  } else {
+    delete headers['Content-Type'];
+  }
 
   const config: RequestInit = {
     method: customOptions.method || (data ? 'POST' : 'GET'),
@@ -27,7 +38,7 @@ export async function apiClient<T = any>(endpoint: string, options: FetchOptions
   };
 
   if (data !== undefined) {
-    config.body = typeof data === 'string' ? data : JSON.stringify(data);
+    config.body = isFormData ? data : (typeof data === 'string' ? data : JSON.stringify(data));
   } else if ((customOptions as any).body) {
     config.body = (customOptions as any).body;
   }

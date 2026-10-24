@@ -11,7 +11,7 @@ interface ModalProps {
   children: React.ReactNode;
   footer?: React.ReactNode;
   className?: string;
-  maxWidth?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '4xl';
+  maxWidth?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl' | '4xl' | '5xl';
 }
 
 export function Modal({ isOpen, onClose, title, description, children, footer, className, maxWidth = 'md' }: ModalProps) {
@@ -41,7 +41,9 @@ export function Modal({ isOpen, onClose, title, description, children, footer, c
     lg: 'max-w-lg',
     xl: 'max-w-xl',
     '2xl': 'max-w-2xl',
+    '3xl': 'max-w-3xl',
     '4xl': 'max-w-4xl',
+    '5xl': 'max-w-5xl',
   }[maxWidth];
 
   return (
